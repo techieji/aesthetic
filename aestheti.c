@@ -5,8 +5,9 @@
 #define SPECIAL_CHARS "()"
 #define STR_SIZE 128
 #define SYM_SIZE 32
+#define ENV_SIZE 16
 
-enum TokenType { SYM, STR, NUM, UTC, END };
+enum TokenType { SYM, STR, NUM, UTC, END, NOP };
 struct Lexed {
 	enum TokenType type;
 	union { float n; char* s; char c; };
@@ -19,6 +20,7 @@ void print_token(struct Lexed tok) {
 		case NUM: printf("NUM(%f)\n", tok.n); break;
 		case END: printf("END\n"); break;
 		case UTC: printf("`%c`\n", tok.c); break;
+    case NOP: printf("NOP\n"); break;
 		default: printf("UNKNOWN\n"); break;
 	}
 }
@@ -41,6 +43,57 @@ struct Lexed get_token() {
 	else puts("Error");
 	s += n;
 	return tok;
+}
+
+// Execution
+
+struct Var {
+  char name[SYM_SIZE];
+  struct Lexed value;
+};
+
+struct Env {
+  struct Var vars[ENV_SIZE];
+  struct Env* parent;
+  int size;
+};
+
+struct Lexed lookup(struct Env e, char* k) {
+  for (int i = 0; i < ENV_SIZE; i++)
+    if ((e.vars + i)->name == k)
+      return (e.vars + i)->value;
+  if (e.parent != NULL)
+    return lookup(*e.parent, k);
+  struct Lexed nop;
+  nop.type = NOP;
+  return nop;
+}
+
+void define(struct Env e, struct Var v) {
+  *(e.vars + e.size) = v;
+}
+
+struct Env child(struct Env e) {
+  struct Env c;
+  c.parent = &e;
+  c.size = 0;
+  return c;
+}
+
+struct Lexed run(struct Env e) {
+  struct Lexed tok = get_token();
+  switch (tok.type) {
+    case SYM: return lookup(e, tok.s); break;
+    case STR|NUM: return tok; break;
+    case END|NOP: {
+      struct Lexed nop;
+      nop.type = NOP;
+      return nop;
+    }
+    case UTC: {
+      
+    }
+  }
 }
 
 int main() {

@@ -1,3 +1,3 @@
 run:
 	gcc aestheti.c
-	./a.exe
+	./a.out

@@ -55,21 +55,11 @@ struct Env child(struct Env e) {
 	return c;
 }
 
-struct Lexed run(struct Env e) {
+struct ParseTree parse() {
 	struct Lexed tok = get_token();
 	switch (tok.type) {
-		case SYM: return lookup(e, tok.s);
-		case STR: case NUM: return tok;
-		case END: case NOP: {
-			struct Lexed nop;
-			nop.type = NOP;
-			return nop;
-		}
-		case UTC: {
-			return tok;   // Delete later
-		}
+		case SYM: return;
 	}
-	return tok;   // Delete later
 }
 
 int main() {

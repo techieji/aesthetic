@@ -48,52 +48,51 @@ struct Lexed get_token() {
 // Execution
 
 struct Var {
-  char name[SYM_SIZE];
-  struct Lexed value;
+	char name[SYM_SIZE];
+	struct Lexed value;
 };
 
 struct Env {
-  struct Var vars[ENV_SIZE];
-  struct Env* parent;
-  int size;
+	struct Var vars[ENV_SIZE];
+	struct Env* parent;
+	int size;
 };
 
 struct Lexed lookup(struct Env e, char* k) {
-  for (int i = 0; i < ENV_SIZE; i++)
-    if ((e.vars + i)->name == k)
-      return (e.vars + i)->value;
-  if (e.parent != NULL)
-    return lookup(*e.parent, k);
-  struct Lexed nop;
-  nop.type = NOP;
-  return nop;
+	for (int i = 0; i < ENV_SIZE; i++)
+		if ((e.vars + i)->name == k)
+			return (e.vars + i)->value;
+	if (e.parent != NULL)
+		return lookup(*e.parent, k);
+	struct Lexed nop;
+	nop.type = NOP;
+	return nop;
 }
 
 void define(struct Env e, struct Var v) {
-  *(e.vars + e.size) = v;
+	*(e.vars + e.size) = v;
 }
 
 struct Env child(struct Env e) {
-  struct Env c;
-  c.parent = &e;
-  c.size = 0;
-  return c;
+	struct Env c;
+	c.parent = &e;
+	c.size = 0;
+	return c;
 }
 
 struct Lexed run(struct Env e) {
-  struct Lexed tok = get_token();
-  switch (tok.type) {
-    case SYM: return lookup(e, tok.s); break;
-    case STR|NUM: return tok; break;
-    case END|NOP: {
-      struct Lexed nop;
-      nop.type = NOP;
-      return nop;
-    }
-    case UTC: {
-      
-    }
-  }
+	struct Lexed tok = get_token();
+	switch (tok.type) {
+		case SYM: return lookup(e, tok.s); break;
+		case STR: case NUM: return tok; break;
+		case END: case NOP: {
+			struct Lexed nop;
+			nop.type = NOP;
+			return nop;
+		} case UTC: {
+			;
+		}
+	}
 }
 
 int main() {

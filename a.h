@@ -34,12 +34,19 @@ struct Env {
 };
 
 struct BranchList;
-struct ArgList;
 
 struct ParseTree {
 	struct Lexed node;
 	struct BranchList branches;
 };
+
+struct BranchList {
+	_Bool last;
+	struct ParseTree here;
+	struct BranchList* next;
+};
+
+struct ArgList;
 
 struct Function {
 	char* name;
@@ -47,17 +54,11 @@ struct Function {
 	struct ParseTree pt;
 };
 
-struct BranchList {
-	_Bool last;
-	struct ParseTree here;
-	struct BranchList* next;
-}
-
 struct ArgList {
 	_Bool last;
 	char* here;
 	struct ArgList* next;
-}
+};
 
 char* s;
 struct Lexed* pushback_ptr = NULL;

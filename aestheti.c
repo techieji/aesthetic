@@ -87,8 +87,11 @@ struct ParseTree parse_expr(void) {
 		pushback(tok);
 		loop->here = parse();
 		loop->last = 0;
-		loop->next = (struct BranchList*)malloc(sizeof struct BranchList
+		loop->next = (struct BranchList*)malloc(sizeof(struct BranchList));
+		loop = loop->next;
 	}
+	loop->last = 1;
+	struct ParseTree pt = { full.here };  // continue
 }
 
 int main() {

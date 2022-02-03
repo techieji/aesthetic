@@ -1,14 +1,11 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
+
 #define SPECIAL_CHARS "()"
 #define STR_SIZE 32
 #define SYM_SIZE 16
 #define ENV_SIZE 16
-
-#include <stddef.h>
-int printf(const char*, ...);
-int sscanf(const char*, const char*, ...);
-int puts(const char*);
-char* strchr(const char*, int);
-void* malloc(size_t size);
 
 enum TokenType { SYM, STR, NUM, UTC, END, NOP, FUN };
 

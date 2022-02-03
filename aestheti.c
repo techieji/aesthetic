@@ -71,6 +71,7 @@ struct ParseTree single(struct Lexed l) {
 
 struct ParseTree parse(void) {
 	struct Lexed tok = get_token();
+
 	switch (tok.type) {
 		case SYM: case NUM: case STR: return single(tok);
 		case UTC:
@@ -94,9 +95,29 @@ struct ParseTree parse_expr(void) {
 	return pt;
 }
 
+void print_parsetree(struct ParseTree pt, char* indent) {
+	if (pt.is_single) {
+		fputs(indent, stdout);
+		print_token(*pt.single);
+	} else {
+		print_parsetree(*pt.node, indent);
+		int indentlen = strlen(indent);
+		char* newindent = malloc(indentlen + 2);
+		strcpy(newindent, indent);
+		strcpy(newindent + indentlen, "  ");
+		struct BranchList* b = pt.branches;
+		while (!b->last) {
+			print_parsetree(b->here, newindent);
+			b = b->next;
+		}
+	}
+}
+
 int main() {
 	lex("(define test (+ 1 2 \"asdf\"))");
-	struct Lexed tok;
-	while ((tok = get_token()).type != END) print_token(tok);
+	puts("Lexed");
+	struct ParseTree pt = parse();
+	puts("Parsed");
+	print_parsetree(pt, "");
 	return 0;
 }

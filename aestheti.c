@@ -6,7 +6,7 @@ void print_token(struct Lexed tok) {
 		case STR: printf("STR(%s)\n", tok.s); break;
 		case NUM: printf("NUM(%f)\n", tok.n); break;
 		case END: printf("END\n"); break;
-		case UTC: printf("`%c`\n", tok.c); break;
+		case UTC: printf("CHAR `%c`\n", tok.c); break;
 		case NOP: printf("NOP\n"); break;
 		default: printf("UNKNOWN\n"); break;
 	}
@@ -71,7 +71,7 @@ struct ParseTree single(struct Lexed l) {
 
 struct ParseTree parse(void) {
 	struct Lexed tok = get_token();
-
+	print_token(tok);
 	switch (tok.type) {
 		case SYM: case NUM: case STR: return single(tok);
 		case UTC:
@@ -83,13 +83,14 @@ struct ParseTree parse(void) {
 struct ParseTree parse_expr(void) {
 	struct Lexed tok;
 	struct BranchList full, *loop = &full;
-	while ((tok = get_token()).type != UTC || tok.c == ')') {
+	while (!((tok = get_token()).type == UTC && tok.c == ')')) {
 		pushback(tok);
 		loop->here = parse();
 		loop->last = 0;
 		loop->next = (struct BranchList*)malloc(sizeof(struct BranchList));
 		loop = loop->next;
 	}
+	print_token(tok);
 	loop->last = 1;
 	struct ParseTree pt = { 0, NULL, &full.here, full.next };
 	return pt;

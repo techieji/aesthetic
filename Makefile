@@ -1,3 +1,3 @@
 run:
-	gcc aestheti.c -o a.out -Wall
+	gcc aestheti.c -o a.out
 	./a.out

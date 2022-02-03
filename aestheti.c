@@ -13,9 +13,15 @@ void print_token(struct Lexed tok) {
 }
 
 
-inline static void lex(char* inp) { s = inp; }
+inline void lex(char* inp) { s = inp; }
+inline void pushback(struct Lexed l) { pushback_ptr = l; }
 
-struct Lexed get_token() {
+struct Lexed get_token(void) {
+	if (pushback_ptr != NULL) {
+		struct Lexed pb = *pushback_ptr;
+		pushback_ptr = NULL;
+		return pb;
+	}
 	int n;
 	sscanf(s, " %n", &n);
 	s += n;
@@ -31,6 +37,12 @@ struct Lexed get_token() {
 	return tok;
 }
 
+struct Lexed nop(void) {
+	struct Lexed l;
+	l.type = NOP;
+	return l;
+}
+
 // Execution
 
 struct Lexed lookup(struct Env e, char* k) {
@@ -39,9 +51,7 @@ struct Lexed lookup(struct Env e, char* k) {
 			return (e.vars + i)->value;
 	if (e.parent != NULL)
 		return lookup(*e.parent, k);
-	struct Lexed nop;
-	nop.type = NOP;
-	return nop;
+	return nop();
 }
 
 void define(struct Env e, struct Var v) {
@@ -55,10 +65,29 @@ struct Env child(struct Env e) {
 	return c;
 }
 
-struct ParseTree parse() {
+struct ParseTree single(struct Lexed l) {
+	struct ParseTree pt = { l, 0, NULL };
+	return pt;
+}
+
+struct ParseTree parse(void) {
 	struct Lexed tok = get_token();
 	switch (tok.type) {
-		case SYM: return;
+		case SYM: case NUM: case STR: return single(tok);
+		case UTC:
+			if (tok.c == '(') return parse_expr();
+		default: return single(nop());
+	}
+}
+
+struct ParseTree parse_expr(void) {
+	struct Lexed tok;
+	struct BranchList full, *loop = &full;
+	while ((tok = get_token()).type != UTC || tok.c == ')') {
+		pushback(tok);
+		loop->here = parse();
+		loop->last = 0;
+		loop->next = (struct BranchList*)malloc(sizeof struct BranchList
 	}
 }
 

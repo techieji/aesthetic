@@ -33,26 +33,43 @@ struct Env {
 	int size;
 };
 
+struct BranchList;
+struct ArgList;
+
 struct ParseTree {
 	struct Lexed node;
-	int branchlen;
-	struct ParseTree* branches;
+	struct BranchList branches;
 };
 
 struct Function {
 	char* name;
-	int arglen;
-	char** args;
+	struct ArgList;
 	struct ParseTree pt;
 };
 
-static char* s;
+struct BranchList {
+	_Bool last;
+	struct ParseTree here;
+	struct BranchList* next;
+}
 
-inline static void lex(char*);
+struct ArgList {
+	_Bool last;
+	char* here;
+	struct ArgList* next;
+}
+
+char* s;
+struct Lexed* pushback_ptr = NULL;
+
+inline void lex(char*);
+inline void pushback(struct Lexed);
 struct Lexed get_token(void);
 struct Lexed lookup(struct Env, char*);
+struct Lexed nop(void);
 void define(struct Env, struct Var);
 struct Env child(struct Env);
 
 struct ParseTree single(struct Lexed);
-struct ParseTree parse();
+struct ParseTree parse(void);
+struct ParseTree parse_expr(void);

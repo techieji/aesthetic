@@ -12,9 +12,8 @@ void print_token(struct Lexed tok) {
 	}
 }
 
-
-inline void lex(char* inp) { s = inp; }
-inline void pushback(struct Lexed l) { pushback_ptr = l; }
+void lex(char* inp) { s = inp; }
+void pushback(struct Lexed l) { pushback_ptr = &l; }
 
 struct Lexed get_token(void) {
 	if (pushback_ptr != NULL) {
@@ -66,7 +65,7 @@ struct Env child(struct Env e) {
 }
 
 struct ParseTree single(struct Lexed l) {
-	struct ParseTree pt = { l, 0, NULL };
+	struct ParseTree pt = { 1, &l, NULL, NULL };
 	return pt;
 }
 
@@ -91,7 +90,8 @@ struct ParseTree parse_expr(void) {
 		loop = loop->next;
 	}
 	loop->last = 1;
-	struct ParseTree pt = { full.here };  // continue
+	struct ParseTree pt = { 0, NULL, &full.here, full.next };
+	return pt;
 }
 
 int main() {

@@ -1,4 +1,6 @@
 #define SPECIAL_CHARS "()"
+#define STR_SIZE 32
+#define SYM_SIZE 16
 #define ENV_SIZE 16
 
 #include <stddef.h>
@@ -8,9 +10,9 @@ int puts(const char*);
 char* strchr(const char*, int);
 void* malloc(size_t size);
 
-struct Function;
-
 enum TokenType { SYM, STR, NUM, UTC, END, NOP, FUN };
+
+struct Function;
 
 struct Lexed {
 	enum TokenType type;
@@ -18,7 +20,7 @@ struct Lexed {
 		float n;
 		char* s;
 		char c;
-		struct Function;
+		struct Function* f;
 	};
 };
 
@@ -36,8 +38,10 @@ struct Env {
 struct BranchList;
 
 struct ParseTree {
-	struct Lexed node;
-	struct BranchList branches;
+	_Bool is_single;
+	struct Lexed* single;
+	struct ParseTree* node;
+	struct BranchList* branches;
 };
 
 struct BranchList {
@@ -46,7 +50,11 @@ struct BranchList {
 	struct BranchList* next;
 };
 
-struct ArgList;
+struct ArgList {
+	_Bool last;
+	char* here;
+	struct ArgList* next;
+};
 
 struct Function {
 	char* name;
@@ -54,17 +62,11 @@ struct Function {
 	struct ParseTree pt;
 };
 
-struct ArgList {
-	_Bool last;
-	char* here;
-	struct ArgList* next;
-};
-
 char* s;
 struct Lexed* pushback_ptr = NULL;
 
-inline void lex(char*);
-inline void pushback(struct Lexed);
+void lex(char*);
+void pushback(struct Lexed);
 struct Lexed get_token(void);
 struct Lexed lookup(struct Env, char*);
 struct Lexed nop(void);

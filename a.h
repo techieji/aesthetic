@@ -55,12 +55,12 @@ struct ArgList {
 
 struct Function {
 	char* name;
-	struct ArgList;
+	struct ArgList args;
 	struct ParseTree pt;
 };
 
-char* s;
-struct Lexed* pushback_ptr = NULL;
+extern char* s;
+extern struct Lexed* pushback_ptr;
 
 void lex(char*);
 void pushback(struct Lexed);
@@ -73,3 +73,6 @@ struct Env child(struct Env);
 struct ParseTree single(struct Lexed);
 struct ParseTree parse(void);
 struct ParseTree parse_expr(void);
+
+void print_token(struct Lexed);
+void print_parsetree(struct ParseTree, char*);

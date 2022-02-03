@@ -1,16 +1,7 @@
 #include "a.h"
 
-void print_token(struct Lexed tok) {
-	switch (tok.type) {
-		case SYM: printf("SYM(%s)\n", tok.s); break;
-		case STR: printf("STR(%s)\n", tok.s); break;
-		case NUM: printf("NUM(%f)\n", tok.n); break;
-		case END: printf("END\n"); break;
-		case UTC: printf("CHAR `%c`\n", tok.c); break;
-		case NOP: printf("NOP\n"); break;
-		default: printf("UNKNOWN\n"); break;
-	}
-}
+char* s;
+struct Lexed* pushback_ptr = NULL;
 
 void lex(char* inp) { s = inp; }
 void pushback(struct Lexed l) { pushback_ptr = &l; }
@@ -36,38 +27,7 @@ struct Lexed get_token(void) {
 	return tok;
 }
 
-struct Lexed nop(void) {
-	struct Lexed l;
-	l.type = NOP;
-	return l;
-}
-
 // Execution
-
-struct Lexed lookup(struct Env e, char* k) {
-	for (int i = 0; i < ENV_SIZE; i++)
-		if ((e.vars + i)->name == k)
-			return (e.vars + i)->value;
-	if (e.parent != NULL)
-		return lookup(*e.parent, k);
-	return nop();
-}
-
-void define(struct Env e, struct Var v) {
-	*(e.vars + e.size) = v;
-}
-
-struct Env child(struct Env e) {
-	struct Env c;
-	c.parent = &e;
-	c.size = 0;
-	return c;
-}
-
-struct ParseTree single(struct Lexed l) {
-	struct ParseTree pt = { 1, &l, NULL, NULL };
-	return pt;
-}
 
 struct ParseTree parse(void) {
 	struct Lexed tok = get_token();
@@ -96,26 +56,10 @@ struct ParseTree parse_expr(void) {
 	return pt;
 }
 
-void print_parsetree(struct ParseTree pt, char* indent) {
-	if (pt.is_single) {
-		fputs(indent, stdout);
-		print_token(*pt.single);
-	} else {
-		print_parsetree(*pt.node, indent);
-		int indentlen = strlen(indent);
-		char* newindent = malloc(indentlen + 2);
-		strcpy(newindent, indent);
-		strcpy(newindent + indentlen, "  ");
-		struct BranchList* b = pt.branches;
-		while (!b->last) {
-			print_parsetree(b->here, newindent);
-			b = b->next;
-		}
-	}
-}
-
 int main() {
 	lex("(define test (+ 1 2 \"asdf\"))");
+	//struct Lexed tok;
+	//while ((tok = get_token()).type != END) print_token(tok);
 	puts("Lexed");
 	struct ParseTree pt = parse();
 	puts("Parsed");

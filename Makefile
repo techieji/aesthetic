@@ -1,3 +1,3 @@
 run:
-	gcc aestheti.c -o a.out
+	gcc aestheti.c logi.c graphi.c -o a.out
 	./a.out

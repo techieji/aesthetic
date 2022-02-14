@@ -7,3 +7,12 @@ run:
 debug:
 	gcc aestheti.c logi.c graphi.c -o a.out -O0 -D_FORTIFY_SOURCE=0 -v -Q -da
 	./a.out
+
+clean:
+	rm a.out -f
+	rm a.out.* -f
+	rm a.exe -f
+	rm a.exe.* -f
+	rm aestheti.c.* -f
+	rm logi.c.* -f
+	rm graphi.c.* -f

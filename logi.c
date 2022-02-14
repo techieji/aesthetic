@@ -26,7 +26,8 @@ struct Lexed nop(void) {
 	return l;
 }
 
-struct ParseTree single(struct Lexed l) {
-	struct ParseTree pt = { 1, &l, NULL, NULL };
+struct ParseTree* single(struct Lexed l) {
+	struct ParseTree* pt = malloc(sizeof(struct ParseTree));
+	*pt = (struct ParseTree){ 1, &l, NULL, NULL };
 	return pt;
 }

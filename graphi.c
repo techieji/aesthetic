@@ -14,17 +14,17 @@ void print_token(struct Lexed tok) {
 	}
 }
 
-void print_parsetree(struct ParseTree pt, char* indent) {
-	if (pt.is_single) {
+void print_parsetree(struct ParseTree* pt, char* indent) {
+	if (pt->is_single) {
 		fputs(indent, stdout);
-		print_token(*pt.single);
+		print_token(*pt->single);
 	} else {
-		print_parsetree(*pt.node, indent);
+		print_parsetree(pt->node, indent);
 		int indentlen = strlen(indent);
 		char* newindent = malloc(indentlen + 2);
 		strcpy(newindent, indent);
 		strcpy(newindent + indentlen, "  ");
-		struct BranchList* b = pt.branches;
+		struct BranchList* b = pt->branches;
 		while (!b->last) {
 			print_parsetree(b->here, newindent);
 			b = b->next;

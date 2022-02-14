@@ -43,7 +43,7 @@ struct ParseTree {
 
 struct BranchList {
 	_Bool last;
-	struct ParseTree here;
+	struct ParseTree* here;
 	struct BranchList* next;
 };
 
@@ -70,9 +70,9 @@ struct Lexed nop(void);
 void define(struct Env, struct Var);
 struct Env child(struct Env);
 
-struct ParseTree single(struct Lexed);
-struct ParseTree parse(void);
-struct ParseTree parse_expr(void);
+struct ParseTree* single(struct Lexed);
+struct ParseTree* parse(void);
+struct ParseTree* parse_expr(void);
 
 void print_token(struct Lexed);
-void print_parsetree(struct ParseTree, char*);
+void print_parsetree(struct ParseTree*, char*);

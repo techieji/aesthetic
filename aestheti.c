@@ -25,14 +25,14 @@ void update_token(void) {
 	else puts("Error");
 	s += n;
 	current = tok;
+	print_token(current);
 }
 
 // Execution
 
-struct ParseTree parse(void) {
+struct ParseTree* parse(void) {
 	update_token();
 	struct Lexed tok = current;
-	print_token(tok);
 	switch (tok.type) {
 		case SYM: case NUM: case STR: return single(tok);
 		case UTC:
@@ -41,7 +41,7 @@ struct ParseTree parse(void) {
 	}
 }
 
-struct ParseTree parse_expr(void) {
+struct ParseTree* parse_expr(void) {
 	struct BranchList full, *loop = &full;
 	update_token();
 	while (!(current.type == UTC && current.c == ')')) {
@@ -52,17 +52,20 @@ struct ParseTree parse_expr(void) {
 		loop = loop->next;
 		update_token();
 	}
-	print_token(current);
 	loop->last = 1;
-	struct ParseTree pt = { 0, NULL, &full.here, full.next };
+	struct ParseTree* pt = malloc(sizeof(struct ParseTree));
+	*pt = (struct ParseTree){ 0, NULL, full.here, full.next };
 	return pt;
 }
 
 int main() {
-	lex("(define test (+ 1 2 \"asdf\"))");
-	//struct Lexed tok;
-	//while ((tok = get_token()).type != END) print_token(tok);
-	struct ParseTree pt = parse();
+	char* s = "(define test (+ 1 2 \"asdf\"))";
+	puts(s);
+	lex(s);
+	// update_token();
+	// while (current.type != END) { print_token(current); update_token(); }
+	// return 0;
+	struct ParseTree* pt = parse();
 	puts("Parsed");
 	print_parsetree(pt, "");
 	return 0;

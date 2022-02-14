@@ -64,7 +64,7 @@ extern struct Lexed* pushback_ptr;
 
 void lex(char*);
 void pushback(struct Lexed);
-struct Lexed get_token(void);
+void update_token(void);
 struct Lexed lookup(struct Env, char*);
 struct Lexed nop(void);
 void define(struct Env, struct Var);

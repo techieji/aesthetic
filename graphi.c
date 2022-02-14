@@ -1,8 +1,8 @@
 #include "a.h"
 
 void print_token(struct Lexed tok) {
-	printf("%i\n", tok.type);
-	return;
+	// printf("%i\n", tok.type);
+	// return;
 	switch (tok.type) {
 		case SYM: printf("SYM(%s)\n", tok.s); break;
 		case STR: printf("STR(%s)\n", tok.s); break;

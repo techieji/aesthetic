@@ -27,7 +27,9 @@ struct Lexed nop(void) {
 }
 
 struct ParseTree* single(struct Lexed l) {
+	struct Lexed* lt = malloc(sizeof(struct Lexed));
+	memcpy(lt, &l, sizeof(struct Lexed));
 	struct ParseTree* pt = malloc(sizeof(struct ParseTree));
-	*pt = (struct ParseTree){ 1, &l, NULL, NULL };
+	*pt = (struct ParseTree){ 1, lt, NULL, NULL };
 	return pt;
 }

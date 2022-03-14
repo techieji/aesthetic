@@ -1,42 +1,42 @@
 #include "a.h"
 
 char* s;
-struct Lexed current, *pushback_ptr = NULL;
+struct Lexed current; 
+_Bool backlog = 0;
+
+// Lexing
 
 void lex(char* inp) { s = inp; }
-void pushback(struct Lexed l) { pushback_ptr = &l; }
+void pushback() { backlog = 1; }
 
 void update_token(void) {
-	if (pushback_ptr != NULL) {
-		struct Lexed pb = *pushback_ptr;
-		pushback_ptr = NULL;
-		current = pb;
+	if (backlog) {
+		backlog = 0;
+	} else {
+		int n;
+		sscanf(s, " %n", &n);
+		s += n;
+		n = 0;
+		struct Lexed tok;
+		if (*s == '\0') { tok.type = END; current = tok; }
+		else if (strchr(SPECIAL_CHARS, *s) != NULL) { tok.c = *s++; tok.type = UTC; }
+		else if (sscanf(s, "%f%n", &tok.n, &n)) tok.type = NUM;
+		else if (sscanf(s, "\"%[^\"]\"%n", (tok.s = malloc(STR_SIZE)), &n)) tok.type = STR;
+		else if (sscanf(s, "%s%n", (tok.s = malloc(SYM_SIZE)), &n)) tok.type = SYM;
+		else puts("Error");
+		s += n;
+		current = tok;
 	}
-	int n;
-	sscanf(s, " %n", &n);
-	s += n;
-	n = 0;
-	struct Lexed tok;
-	if (*s == '\0') { tok.type = END; current = tok; }
-	else if (strchr(SPECIAL_CHARS, *s) != NULL) { tok.c = *s++; tok.type = UTC; }
-	else if (sscanf(s, "%f%n", &tok.n, &n)) tok.type = NUM;
-	else if (sscanf(s, "\"%[^\"]\"%n", (tok.s = malloc(STR_SIZE)), &n)) tok.type = STR;
-	else if (sscanf(s, "%s%n", (tok.s = malloc(SYM_SIZE)), &n)) tok.type = SYM;
-	else puts("Error");
-	s += n;
-	current = tok;
-	print_token(current);
 }
 
-// Execution
+// Parsing
 
 struct ParseTree* parse(void) {
 	update_token();
-	struct Lexed tok = current;
-	switch (tok.type) {
-		case SYM: case NUM: case STR: return single(tok);
+	switch (current.type) {
+		case SYM: case NUM: case STR: return single(current);
 		case UTC:
-			if (tok.c == '(') return parse_expr();
+			if (current.c == '(') return parse_expr();
 		default: return single(nop());
 	}
 }
@@ -45,7 +45,7 @@ struct ParseTree* parse_expr(void) {
 	struct BranchList full, *loop = &full;
 	update_token();
 	while (!(current.type == UTC && current.c == ')')) {
-		pushback(current);
+		pushback();
 		loop->here = parse();
 		loop->last = 0;
 		loop->next = (struct BranchList*)malloc(sizeof(struct BranchList));

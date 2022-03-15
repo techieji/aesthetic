@@ -59,17 +59,14 @@ struct ParseTree* parse_expr(void) {
 }
 
 int main() {
-	char* s = "(define test '1)";
+	char* s = "(define test (+ 1 2 \"asdf\"))";
 	puts(s);
-	// lex(s);
+	lex(s);
 	// update_token();
 	// while (current.type != END) { print_token(current); update_token(); }
 	// return 0;
-	//
-	// struct ParseTree* pt = parse();
-	// puts("Parsed");
-	// print_parsetree(pt, "");
-	char* new = preprocess_str(s);
-	puts(s);
+	struct ParseTree* pt = parse();
+	puts("Parsed");
+	print_parsetree(pt, "");
 	return 0;
 }

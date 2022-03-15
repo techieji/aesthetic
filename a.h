@@ -1,4 +1,3 @@
-#pragma once
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -7,7 +6,6 @@
 #define STR_SIZE 32
 #define SYM_SIZE 16
 #define ENV_SIZE 16
-#define PPBUF_SIZE 64
 
 enum TokenType { SYM, STR, NUM, UTC, END, NOP, FUN };
 
@@ -78,5 +76,3 @@ struct ParseTree* parse_expr(void);
 
 void print_token(struct Lexed);
 void print_parsetree(struct ParseTree*, char*);
-
-char* preprocess_str(char*);

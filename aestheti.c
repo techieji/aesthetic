@@ -36,7 +36,12 @@ struct ParseTree* parse(void) {
 	switch (current.type) {
 		case SYM: case NUM: case STR: return single(current);
 		case UTC:
-			if (current.c == '(') return parse_expr();
+			switch (current.c) {
+				case '(': return parse_expr();
+				case '\'': return topnode(parse(), "quote");
+				case '`': return topnode(parse(), "quasiquote");
+				case ',': return topnode(parse(), "unquote");
+			}
 		default: return single(nop());
 	}
 }
@@ -59,7 +64,7 @@ struct ParseTree* parse_expr(void) {
 }
 
 int main() {
-	char* s = "(define test (+ 1 2 \"asdf\"))";
+	char* s = "(define test `(+ 1 ,2 \"asdf\"))";
 	puts(s);
 	lex(s);
 	// update_token();

@@ -33,3 +33,20 @@ struct ParseTree* single(struct Lexed l) {
 	*pt = (struct ParseTree){ 1, lt, NULL, NULL };
 	return pt;
 }
+
+struct BranchList* single_list(struct ParseTree* pt) {
+	struct BranchList* bl = malloc(sizeof(struct BranchList));
+	struct BranchList* last = malloc(sizeof(struct BranchList));
+	*bl = (struct BranchList){ 0, pt, last };
+	*last = (struct BranchList){ 1, NULL, NULL };
+	return bl;
+}
+
+struct ParseTree* topnode(struct ParseTree* pt, char* node_name) {
+	struct Lexed name;
+	name.type = SYM;
+	name.s = node_name;
+	struct ParseTree* t = malloc(sizeof(struct ParseTree));
+	*t = (struct ParseTree){ 0, NULL, single(name), single_list(pt)};
+	return t;
+}

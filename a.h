@@ -2,7 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 
-#define SPECIAL_CHARS "()"
+#define SPECIAL_CHARS "()'`,"
 #define STR_SIZE 32
 #define SYM_SIZE 16
 #define ENV_SIZE 16
@@ -73,6 +73,7 @@ struct Env child(struct Env);
 struct ParseTree* single(struct Lexed);
 struct ParseTree* parse(void);
 struct ParseTree* parse_expr(void);
+struct ParseTree* topnode(struct ParseTree*, char*);
 
 void print_token(struct Lexed);
 void print_parsetree(struct ParseTree*, char*);

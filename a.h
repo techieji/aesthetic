@@ -49,7 +49,7 @@ struct BranchList {
 
 struct ArgList {
 	_Bool last;
-	char* here;
+	struct Lexed* here;
 	struct ArgList* next;
 };
 
@@ -67,8 +67,10 @@ void pushback();
 void update_token(void);
 struct Lexed lookup(struct Env, char*);
 struct Lexed nop(void);
-void define(struct Env, struct Var);
-struct Env child(struct Env);
+
+struct Env child(struct Env*);
+struct Lexed lookup(struct Env*, char*);
+void set(struct Env* env, char* name, struct Lexed value);
 
 struct ParseTree* single(struct Lexed);
 struct ParseTree* parse(void);

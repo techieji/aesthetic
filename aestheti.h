@@ -62,14 +62,14 @@ struct Assoc {
 };
 
 struct Env {
-	struct Env* parent;
 	struct Assoc vars;
+	struct Env* parent;
 };
 
-void assoc_bind(struct Assoc, char*, struct Value*);
-void assoc_get(struct Assoc, char*);
+void assoc_bind(struct Assoc*, char*, struct Value*);
+struct Value* assoc_get(struct Assoc*, char*);
 void bind(struct Env*, char*, struct Value*);
-void get(struct Env*, char*);   // Looks up from upper envs as well
+struct Value* get(struct Env*, char*);   // Looks up from upper envs as well
 
 // Actual execution
 

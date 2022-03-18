@@ -130,6 +130,38 @@ struct ParseTree* parse_expr(void) {
 	return pt;
 }
 
+// Execution
+
+void assoc_bind(struct Assoc* a, char* k, struct Value* v) {
+	while (a->next != NULL) a = a->next;
+	a->key = k;
+	a->val = v;
+	struct Assoc* next = malloc(sizeof(struct Assoc));
+	next->next = NULL;
+	a->next = next;
+}
+
+struct Value* assoc_get(struct Assoc* a, char* k) {
+	while (a->next != NULL)
+		if (a->key == k)
+			return a->value;
+	return NULL;
+}
+
+void bind(struct Env* e, char* k, struct Value* v) {
+	assoc_bind(&e->vars, k, v);
+}
+
+struct Value* get(struct Env* e, char* k) {
+	struct Value* ptr;
+	do
+		if ((ptr = assoc_get(e->vars, k)) != NULL)
+			return ptr;
+	while ((e = e->parent) != NULL);  // Check logic
+}
+
+// Main
+
 int main() {
 	char* s = "(define test `(+ 1 ,2 \"asdf\"))";
 	puts(s);

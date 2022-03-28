@@ -106,6 +106,7 @@ struct Pair {
 struct Value run(struct Env*, struct ParseTree*);
 struct Value run_special_form(struct Env*, char*, struct ArgList*);
 struct Value run_tree(struct Env*, struct ParseTree*);
+bool is_special_form(char*);
 
 /* Logging */
 

@@ -144,7 +144,7 @@ void assoc_bind(struct Assoc* a, char* k, struct Value* v) {
 struct Value* assoc_get(struct Assoc* a, char* k) {
 	while (a->next != NULL)
 		if (a->key == k)
-			return a->value;
+			return a->val;
 	return NULL;
 }
 
@@ -155,9 +155,30 @@ void bind(struct Env* e, char* k, struct Value* v) {
 struct Value* get(struct Env* e, char* k) {
 	struct Value* ptr;
 	do
-		if ((ptr = assoc_get(e->vars, k)) != NULL)
+		if ((ptr = assoc_get(&e->vars, k)) != NULL)
 			return ptr;
 	while ((e = e->parent) != NULL);  // Check logic
+}
+
+bool is_special_form(struct Lexed* l) {
+	if (l->type != SYM) return 0;
+	char* s = l->s;
+	return        !(strcmp(s, "quote") &&
+			strcmp(s, "quasiquote") &&
+			strcmp(s, "define")); // Add functions later
+}
+
+struct Value run(struct Env* e, struct ParseTree* pt) {
+	if (pt.node->is_single && is_special_form(pt.node->single))
+		return run_special_form(pt.node->single);
+	else
+		return run_tree(e, pt);
+}
+
+struct Value run_special_form(struct Env* e, char* s, struct ArgList*) {
+}
+
+struct Value run_tree(struct Env* e, struct ParseTree* pt) {
 }
 
 // Main

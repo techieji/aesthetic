@@ -130,7 +130,9 @@ struct ParseTree* parse_expr(void) {
 	return pt;
 }
 
-// Execution
+// Execution helpers
+
+// Environment managing
 
 void assoc_bind(struct Assoc* a, char* k, struct Value* v) {
 	while (a->next != NULL) a = a->next;
@@ -149,36 +151,80 @@ struct Value* assoc_get(struct Assoc* a, char* k) {
 }
 
 void bind(struct Env* e, char* k, struct Value* v) {
-	assoc_bind(&e->vars, k, v);
+	assoc_bind(e->vars, k, v);
 }
 
 struct Value* get(struct Env* e, char* k) {
 	struct Value* ptr;
 	do
-		if ((ptr = assoc_get(&e->vars, k)) != NULL)
+		if ((ptr = assoc_get(e->vars, k)) != NULL)
 			return ptr;
 	while ((e = e->parent) != NULL);  // Check logic
 }
 
-bool is_special_form(struct Lexed* l) {
-	if (l->type != SYM) return 0;
-	char* s = l->s;
-	return        !(strcmp(s, "quote") &&
-			strcmp(s, "quasiquote") &&
-			strcmp(s, "define")); // Add functions later
+struct Env* child(struct Env* parent) {
+	struct Env* child = malloc(sizeof(struct Env));
+	struct Assoc* a = malloc(sizeof(struct Assoc));
+	a->next = NULL;
+  child->vars = a;
+  child->parent = parent;
+  // *child = { a, parent };
+	return child;
 }
 
-struct Value run(struct Env* e, struct ParseTree* pt) {
-	if (pt.node->is_single && is_special_form(pt.node->single))
-		return run_special_form(pt.node->single);
-	else
-		return run_tree(e, pt);
+// Execution
+
+struct ArgList* _al_append(struct ArgList* al, struct Value* v) {
+  if (al->here == NULL) al->here = v;
+  else {
+    al->next = malloc(sizeof(struct ArgList));
+    al->next->here = v;
+    return al->next;
+  }
 }
 
-struct Value run_special_form(struct Env* e, char* s, struct ArgList*) {
+struct Value* lexed_to_value(struct Lexed* l, struct Env* e) {
+  struct Value* v;
+  switch (l->type) {
+    SYM:
+      return get(e, l->s);
+    STR:
+      v = malloc(sizeof(struct Value));
+      v->s = l->s;
+      return v;
+    NUM:
+      v = malloc(sizeof(struct Value));
+      v->n = l->n;
+      return v;
+    default:
+      perror("Lexed value cannot be converted");
+      return NULL;
+  }
 }
 
-struct Value run_tree(struct Env* e, struct ParseTree* pt) {
+struct Value* run(struct Env* e, struct ParseTree* pt) {
+  if (pt->is_single) {
+    return lexed_to_value(pt->single, e);
+  }
+  struct Value* f = run(e, pt->node);
+  if (f->type == VMAC) {
+  } else if (f->type == VFUN) {
+    struct ArgList* al = malloc(sizeof(struct ArgList));
+    al->here = NULL;
+    al->next = NULL;
+    struct ArgList* im = al;
+    struct BranchList* bl = pt->branches;
+    for (struct BranchList* bl = pt->branches; bl != NULL; bl = bl->next)
+      im = _al_append(im, run(e, bl->here));
+    if (f->fn->type == PRIMITIVE) {
+      f->fn->cfn(al);
+    //} else if (f->fn->type == NORMAL) {
+    //  struct Env* ec = child(e);
+    //  ;
+    } else perror("???");
+  } else {
+    perror("Uncallable object called");    // Improve error messages
+  };
 }
 
 // Main

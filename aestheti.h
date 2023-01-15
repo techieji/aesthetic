@@ -2,6 +2,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 
 #define SPECIAL_CHARS "()'`,"
 #define STR_SIZE 32
@@ -34,14 +35,14 @@ struct Lexed nop(void);
 struct BranchList;
 
 struct ParseTree {
-	_Bool is_single;
+	bool is_single;
 	struct Lexed* single;
 	struct ParseTree* node;
 	struct BranchList* branches;
 };
 
 struct BranchList {
-	_Bool last;
+	bool last;
 	struct ParseTree* here;
 	struct BranchList* next;
 };
@@ -50,6 +51,7 @@ struct ParseTree* single(struct Lexed);
 struct ParseTree* parse(void);
 struct ParseTree* parse_expr(void);
 struct ParseTree* topnode(struct ParseTree*, char*);
+struct ParseTree* branchn(struct ParseTree*, int);
 
 /* Execution */
 
@@ -62,7 +64,7 @@ struct Assoc {
 };
 
 struct Env {
-	struct Assoc vars;
+	struct Assoc* vars;
 	struct Env* parent;
 };
 
@@ -70,19 +72,22 @@ void assoc_bind(struct Assoc*, char*, struct Value*);
 struct Value* assoc_get(struct Assoc*, char*);
 void bind(struct Env*, char*, struct Value*);
 struct Value* get(struct Env*, char*);   // Looks up from upper envs as well
+struct Env* child(struct Env*);
 
 // Actual execution
 
 struct Function;
+struct Macro;
 struct Pair;
 
-enum ValueType { VSTR, VNUM, VFUN, VPAIR, VARGNAME };
+enum ValueType { VSTR, VNUM, VFUN, VMAC, VPAIR, VARGNAME };
 struct Value {
 	enum ValueType type;
 	union {
 		char* s;
 		float n;
 		struct Function* fn;
+    struct Macro* mac;
 		struct Pair* pr;
 	};
 };
@@ -92,21 +97,36 @@ struct ArgList {
 	struct ArgList* next;
 };
 
+struct ArgList* _al_append(struct ArgList*, struct Value*);
+
+enum FunctionType { PRIMITIVE, NORMAL };
 struct Function {
-	char* s;
+  enum FunctionType type;
 	struct ArgList* al;
-	struct ParseTree* pt;
+  union {
+    struct ParseTree* pt;
+    struct Value (*cfn)(struct ArgList*);
+  };
 };
+
+struct Macro {
+  enum FunctionType type;
+  struct ArgList* al;
+  union {
+    struct ParseTree* pt;
+    struct ParseTree(*cfn)(struct BranchList*, struct Env* e);
+  };
+};     // Could probably merge with Functions
 
 struct Pair {
 	struct Value* e1;
 	struct Value* e2;
 };
 
-struct Value run(struct Env*, struct ParseTree*);
-struct Value run_special_form(struct Env*, char*, struct ArgList*);
-struct Value run_tree(struct Env*, struct ParseTree*);
-bool is_special_form(char*);
+/* Execution */
+
+struct Value* lexed_to_value(struct Lexed*, struct Env*);
+struct Value* run(struct Env*, struct ParseTree*);
 
 /* Logging */
 

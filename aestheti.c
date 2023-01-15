@@ -144,9 +144,11 @@ void assoc_bind(struct Assoc* a, char* k, struct Value* v) {
 }
 
 struct Value* assoc_get(struct Assoc* a, char* k) {
-	while (a->next != NULL)
-		if (a->key == k)
+  for (; a != NULL; a = a->next)
+		if (strcmp(a->key, k) == 0)
 			return a->val;
+    else
+      printf("%s != %s\n", a->key, k);
 	return NULL;
 }
 
@@ -160,6 +162,8 @@ struct Value* get(struct Env* e, char* k) {
 		if ((ptr = assoc_get(e->vars, k)) != NULL)
 			return ptr;
 	while ((e = e->parent) != NULL);  // Check logic
+  fprintf(stderr, "Variable `%s` not found\n", k);
+  exit(1);
 }
 
 struct Env* child(struct Env* parent) {
@@ -172,52 +176,60 @@ struct Env* child(struct Env* parent) {
 	return child;
 }
 
-// Execution
-
-struct ArgList* _al_append(struct ArgList* al, struct Value* v) {
-  if (al->here == NULL) al->here = v;
-  else {
-    al->next = malloc(sizeof(struct ArgList));
-    al->next->here = v;
-    return al->next;
+void print_value(struct Value* v) {
+  switch (v->type) {
+    case VSTR: printf("%s\n", v->s); return;
+    case VNUM: printf("%f\n", v->n); return;
+    default: puts("OTHER");
   }
 }
 
+// Execution
+
+struct ArgList* _al_append(struct ArgList* al, struct Value* v) {
+  al->here = v;
+  al->next = malloc(sizeof(struct ArgList));
+  return al->next;
+}
+
 struct Value* lexed_to_value(struct Lexed* l, struct Env* e) {
-  struct Value* v;
+  struct Value* v = malloc(sizeof(struct Value));
   switch (l->type) {
-    SYM:
+    case SYM:
+      free(v);
       return get(e, l->s);
-    STR:
-      v = malloc(sizeof(struct Value));
+    case STR:
       v->s = l->s;
+      v->type = VSTR;
       return v;
-    NUM:
-      v = malloc(sizeof(struct Value));
+    case NUM:
       v->n = l->n;
+      v->type = VNUM;
       return v;
     default:
-      perror("Lexed value cannot be converted");
-      return NULL;
+      fprintf(stderr, "Lexed value cannot be converted: %i\n", l->type);
+      exit(1);
   }
 }
 
 struct Value* run(struct Env* e, struct ParseTree* pt) {
   if (pt->is_single) {
+    //return lexed_to_value(pt->single, e);
     return lexed_to_value(pt->single, e);
   }
   struct Value* f = run(e, pt->node);
-  if (f->type == VMAC) {
+  if (f->type == VMAC) {   // Finish
   } else if (f->type == VFUN) {
     struct ArgList* al = malloc(sizeof(struct ArgList));
     al->here = NULL;
     al->next = NULL;
     struct ArgList* im = al;
-    struct BranchList* bl = pt->branches;
-    for (struct BranchList* bl = pt->branches; bl != NULL; bl = bl->next)
+    for (struct BranchList* bl = pt->branches; bl->next != NULL; bl = bl->next) {  // TODO: Fix branchlist structure
       im = _al_append(im, run(e, bl->here));
+    }
+    im->next = NULL;   // Check logic
     if (f->fn->type == PRIMITIVE) {
-      f->fn->cfn(al);
+      return f->fn->cfn(al);
     //} else if (f->fn->type == NORMAL) {
     //  struct Env* ec = child(e);
     //  ;
@@ -230,14 +242,14 @@ struct Value* run(struct Env* e, struct ParseTree* pt) {
 // Main
 
 int main() {
-	char* s = "(define test `(+ 1 ,2 \"asdf\"))";
+	// char* s = "(define test `(+ 1 ,2 \"asdf\"))";
+  char* s = "(+ (+ 1 2) 2)";
 	puts(s);
 	lex(s);
-	// update_token();
-	// while (current.type != END) { print_token(current); update_token(); }
-	// return 0;
 	struct ParseTree* pt = parse();
 	puts("Parsed");
 	print_parsetree(pt, "");
+  struct Env* e = get_base_stdlib();
+  print_value(run(e, pt));
 	return 0;
 }

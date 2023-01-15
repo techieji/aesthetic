@@ -3,7 +3,7 @@
 # http://www.catb.org/esr/structure-packing/
 
 run:
-	gcc aestheti.c -o a.out -Os
+	gcc aestheti.c stdlib.c -o a.out -Os
 	./a.out
 
 small:

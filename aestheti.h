@@ -92,6 +92,13 @@ struct Value {
 	};
 };
 
+void print_value(struct Value* v);
+
+#define CHECK_TYPE(EXPR, TYPE) do { if ((EXPR)->type != TYPE) {\
+                                fprintf(stderr, "TypeError: %s is not expected type %s", #EXPR, #TYPE);\
+                                exit(1); \
+                               } } while (0)
+
 struct ArgList {
 	struct Value* here;
 	struct ArgList* next;
@@ -105,7 +112,7 @@ struct Function {
 	struct ArgList* al;
   union {
     struct ParseTree* pt;
-    struct Value (*cfn)(struct ArgList*);
+    struct Value* (*cfn)(struct ArgList*);
   };
 };
 
@@ -127,6 +134,8 @@ struct Pair {
 
 struct Value* lexed_to_value(struct Lexed*, struct Env*);
 struct Value* run(struct Env*, struct ParseTree*);
+
+struct Env* get_base_stdlib(void);
 
 /* Logging */
 

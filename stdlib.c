@@ -1,28 +1,58 @@
-#include "aestheti.h"
+#include "stdlib.h"
 
-struct Value* _fn_to_value(struct Value* fn(struct ArgList*)) {
+struct Value* fn_to_value(struct Value* (*cfn)(struct ValueList*)) {
   struct Value* v = malloc(sizeof(struct Value));
-  v->type = VFUN;
-  struct Function* f = malloc(sizeof(struct Function));
-  f->type = PRIMITIVE;
-  f->cfn = fn;
-  v->fn = f;
+  v->type = FN;
+  v->fn = malloc(sizeof(struct Function));
+  v->fn->type = CFN;
+  v->fn->cfn = cfn;
   return v;
 }
 
-struct Value* cfn_add(struct ArgList* al) {
-  struct Value* v1 = al->here;
-  struct Value* v2 = al->next->here;    // Handle null pointer (functionize)
-  CHECK_TYPE(v1, VNUM);
-  CHECK_TYPE(v2, VNUM);
-  struct Value* vp = malloc(sizeof(struct Value));
-  vp->type = VNUM;
-  vp->n = v1->n + v2->n;
-  return vp;
-}   // That's a lot of code!
+struct Value* mac_to_value(struct Value* (*mfn)(struct ValueList*, struct ValueEnv*)) {
+  struct Value* v = malloc(sizeof(struct Value));
+  v->type = FN;
+  v->fn = malloc(sizeof(struct Function));
+  v->fn->type = CMAC;
+  v->fn->mfn = mfn;
+  return v;
+}
 
-struct Env* get_base_stdlib(void) {
-  struct Env* e = child(NULL);
-  bind(e, "+", _fn_to_value(cfn_add));
+// Core
+
+struct Value* cfn_display(struct ValueList* vl) {
+  print_value(*idx(vl, 0), false, "\n", stdout);
+  return idx(vl, 0);   // Return NIL!!
+}
+
+// CoreExt
+
+struct Value* cmac_define(struct ValueList* vl, struct ValueEnv* ve) {
+  struct Value* v1 = idx(vl, 0);
+  struct Value* v2 = idx(vl, 1);
+  assert(v1->type == SYM);
+  env_set(ve, v1, run(v2, ve));
+}
+
+// Arith
+
+struct Value* cfn_add(struct ValueList* vl) {
+  struct Value* v1 = idx(vl, 0);
+  struct Value* v2 = idx(vl, 1);
+  assert(v1->type == NUM && v2->type == NUM);
+  return number(v1->n + v2->n);
+}
+
+struct ValueEnv* get_stdlib(void) {
+  struct ValueEnv* e = child(NULL);
+#if CORE
+  env_set(e, symbol("display"), fn_to_value(cfn_display));
+#endif
+#if COREEXT
+  env_set(e, symbol("define"), mac_to_value(cmac_define));
+#endif
+#if ARITH
+  env_set(e, symbol("+"), fn_to_value(cfn_add));
+#endif
   return e;
 }

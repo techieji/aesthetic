@@ -1,255 +1,270 @@
 #include "aestheti.h"
 
-/* Utility */
-
-struct Lexed nop(void) {
-	struct Lexed l;
-	l.type = NOP;
-	return l;
+bool value_equal(struct Value v1, struct Value v2) {
+  if (v1.type == v2.type) {
+    switch (v1.type) {
+      case NUM:
+      case CHAR:
+        return v1.n == v2.n;
+      case STR:
+      case SYM:
+        return strcmp(v1.s, v2.s) == 0;
+      case NIL:
+        return true;
+      // List, dict, env are not supported yet and return false
+    }
+  }
+  return false;
 }
 
-struct ParseTree* single(struct Lexed l) {
-	struct Lexed* lt = malloc(sizeof(struct Lexed));
-	memcpy(lt, &l, sizeof(struct Lexed));
-	struct ParseTree* pt = malloc(sizeof(struct ParseTree));
-	*pt = (struct ParseTree){ 1, lt, NULL, NULL };
-	return pt;
+struct Value* number(float f) {
+  struct Value* v = malloc(sizeof(struct Value));
+  v->type = NUM;
+  v->n = f;
+  return v;
 }
 
-struct BranchList* single_list(struct ParseTree* pt) {
-	struct BranchList* bl = malloc(sizeof(struct BranchList));
-	struct BranchList* last = malloc(sizeof(struct BranchList));
-	*bl = (struct BranchList){ 0, pt, last };
-	*last = (struct BranchList){ 1, NULL, NULL };
-	return bl;
+struct Value* symbol(char* s) {
+  struct Value* v = malloc(sizeof(struct Value));
+  v->type = SYM;
+  v->s = s;
+  return v;
 }
 
-struct ParseTree* topnode(struct ParseTree* pt, char* node_name) {
-	struct Lexed name;
-	name.type = SYM;
-	name.s = node_name;
-	struct ParseTree* t = malloc(sizeof(struct ParseTree));
-	*t = (struct ParseTree){ 0, NULL, single(name), single_list(pt)};
-	return t;
+struct Value* string(char* s) {
+  struct Value* v = malloc(sizeof(struct Value));
+  v->type = STR;
+  v->s = s;
+  return v;
 }
 
-// Logging
-
-void print_token(struct Lexed tok) {
-	switch (tok.type) {
-		case SYM: printf("SYM(%s)\n", tok.s); break;
-		case STR: printf("STR(%s)\n", tok.s); break;
-		case NUM: printf("NUM(%f)\n", tok.n); break;
-		case END: printf("END\n"); break;
-		case UTC: printf("CHAR `%c`\n", tok.c); break;
-		case NOP: printf("NOP\n"); break;
-		default: printf("UNKNOWN\n"); break;
-	}
+struct ValueList* vvalue_list(int n, va_list a) {
+  struct ValueList* l = NULL;    // Check logic
+  for (int i = 0; i < n; i++)
+    l = append(l, va_arg(a, struct Value*));
+  va_end(a);
+  return l;
 }
 
-void print_parsetree(struct ParseTree* pt, char* indent) {
-	if (pt->is_single) {
-		fputs(indent, stdout);
-		print_token(*pt->single);
-	} else {
-		print_parsetree(pt->node, indent);
-		int indentlen = strlen(indent);
-		char* newindent = malloc(indentlen + 2);
-		strcpy(newindent, indent);
-		strcpy(newindent + indentlen, "  ");
-		struct BranchList* b = pt->branches;
-		while (!b->last) {
-			print_parsetree(b->here, newindent);
-			b = b->next;
-		}
-	}
+struct Value* list_to_value(struct ValueList* vl) {
+  struct Value* v = malloc(sizeof(struct Value));
+  v->type = LIST;
+  v->l = vl;
+  return v;
 }
 
-/* Logic */
+struct ValueList* value_list(int n, ...) {
+  va_list args;
+  va_start(args, n);
+  return vvalue_list(n, args);
+}
 
-char* s;
-struct Lexed current; 
-_Bool backlog = 0;
+struct ValueList* append(struct ValueList* vl, struct Value* v) {  // Check logic
+  if (vl == NULL) {
+    struct ValueList* r = malloc(sizeof(struct ValueList));
+    *r = (struct ValueList){ v, NULL };
+    return r;
+  } else {
+    vl->next = append(vl->next, v);          // Can definitely make this iterative
+    return vl;
+  }
+}
+
+int find(struct ValueList* vl, struct Value* v) {
+  for (int i = 0; vl != NULL; vl = vl->next, i++)
+    if (value_equal(*vl->here, *v))
+      return i;
+  return -1;
+}
+
+struct Value* idx(struct ValueList* vl, int n) {
+  int i;
+  for (i = 0; i < n && vl != NULL; i++) vl = vl->next;
+  if (i == n) return vl->here;
+  fprintf(stderr, "IndexError: %i is greater than list len %i\n", n, i);
+  print_value(*list_to_value(vl), false, "\n", stderr);
+  return NULL;
+}
+
+struct Value* dict_get(struct ValueDict* vd, struct Value* v) {
+  int i = find(vd->keys, v);
+  if (i < 0)
+    return NULL;
+  return idx(vd->values, i);
+}
+
+struct ValueDict* dict_set(struct ValueDict* vd, struct Value* k, struct Value* v) {
+  if (vd == NULL) {
+    vd = malloc(sizeof(struct ValueDict));
+    vd->keys = value_list(1, k);
+    vd->values = value_list(1, v);
+  } else {
+    append(vd->keys, k);
+    append(vd->values, v);
+  }
+  return vd;
+}
+
+struct Value* env_get(struct ValueEnv* ve, struct Value* v) {
+  if (ve == NULL) {
+    print_value(*v, false, "", stderr);
+    fprintf(stderr, " is not defined\n");
+    return NULL;
+  }
+  struct Value* r = dict_get(ve->d, v);
+  if (r == NULL) return env_get(ve->upper, v);    // Can probably make iterative
+  else return r;
+}
+
+struct ValueEnv* env_set(struct ValueEnv* ve, struct Value* k, struct Value* v) {
+  ve->d = dict_set(ve->d, k, v);     // Support redefining variables in higher scopes
+  return ve;
+}
+
+struct ValueEnv* child(struct ValueEnv* ve) {
+  struct ValueEnv* e = malloc(sizeof(struct ValueEnv));
+  e->d = NULL;
+  e->upper = ve;
+  return e;
+}
 
 // Lexing
 
-void lex(char* inp) { s = inp; }
-void pushback() { backlog = 1; }
-
-void update_token(void) {
-	if (backlog) {
-		backlog = 0;
-	} else {
-		int n;
-		sscanf(s, " %n", &n);
-		s += n;
-		n = 0;
-		struct Lexed tok;
-		if (*s == '\0') { tok.type = END; current = tok; }
-		else if (strchr(SPECIAL_CHARS, *s) != NULL) { tok.c = *s++; tok.type = UTC; }
-		else if (sscanf(s, "%f%n", &tok.n, &n)) tok.type = NUM;
-		else if (sscanf(s, "\"%[^\"]\"%n", (tok.s = malloc(STR_SIZE)), &n)) tok.type = STR;
-		else if (sscanf(s, "%s%n", (tok.s = malloc(SYM_SIZE)), &n)) tok.type = SYM;
-		else puts("Error");
-		s += n;
-		current = tok;
-	}
+struct Lexer* lex(char* s) {
+  struct Lexer* l = malloc(sizeof(struct Lexer));
+  *l = (struct Lexer){ s };
+  return l;
 }
 
-// Parsing
-
-struct ParseTree* parse(void) {
-	update_token();
-	switch (current.type) {
-		case SYM: case NUM: case STR: return single(current);
-		case UTC:
-			switch (current.c) {
-				case '(': return parse_expr();
-				case '\'': return topnode(parse(), "quote");
-				case '`': return topnode(parse(), "quasiquote");
-				case ',': return topnode(parse(), "unquote");
-			}
-		default: return single(nop());
-	}
+struct Lexer* pushback(struct Lexer* l, struct Value* tok) {
+  l->backlog = tok;
+  return l;
 }
 
-struct ParseTree* parse_expr(void) {
-	struct BranchList full, *loop = &full;
-	update_token();
-	while (!(current.type == UTC && current.c == ')')) {
-		pushback();
-		loop->here = parse();
-		loop->last = 0;
-		loop->next = (struct BranchList*)malloc(sizeof(struct BranchList));
-		loop = loop->next;
-		update_token();
-	}
-	loop->last = 1;
-	struct ParseTree* pt = malloc(sizeof(struct ParseTree));
-	*pt = (struct ParseTree){ 0, NULL, full.here, full.next };
-	return pt;
-}
-
-// Execution helpers
-
-// Environment managing
-
-void assoc_bind(struct Assoc* a, char* k, struct Value* v) {
-	while (a->next != NULL) a = a->next;
-	a->key = k;
-	a->val = v;
-	struct Assoc* next = malloc(sizeof(struct Assoc));
-	next->next = NULL;
-	a->next = next;
-}
-
-struct Value* assoc_get(struct Assoc* a, char* k) {
-  for (; a != NULL; a = a->next)
-		if (strcmp(a->key, k) == 0)
-			return a->val;
-    else
-      printf("%s != %s\n", a->key, k);
-	return NULL;
-}
-
-void bind(struct Env* e, char* k, struct Value* v) {
-	assoc_bind(e->vars, k, v);
-}
-
-struct Value* get(struct Env* e, char* k) {
-	struct Value* ptr;
-	do
-		if ((ptr = assoc_get(e->vars, k)) != NULL)
-			return ptr;
-	while ((e = e->parent) != NULL);  // Check logic
-  fprintf(stderr, "Variable `%s` not found\n", k);
-  exit(1);
-}
-
-struct Env* child(struct Env* parent) {
-	struct Env* child = malloc(sizeof(struct Env));
-	struct Assoc* a = malloc(sizeof(struct Assoc));
-	a->next = NULL;
-  child->vars = a;
-  child->parent = parent;
-  // *child = { a, parent };
-	return child;
-}
-
-void print_value(struct Value* v) {
-  switch (v->type) {
-    case VSTR: printf("%s\n", v->s); return;
-    case VNUM: printf("%f\n", v->n); return;
-    default: puts("OTHER");
+// FIXME: memory leak in string and symbol malloc
+struct Value* get_token(struct Lexer* l) {
+  if (l->backlog != NULL) {
+    struct Value* v = l->backlog;
+    l->backlog = NULL;
+    return v;
   }
-}
-
-// Execution
-
-struct ArgList* _al_append(struct ArgList* al, struct Value* v) {
-  al->here = v;
-  al->next = malloc(sizeof(struct ArgList));
-  return al->next;
-}
-
-struct Value* lexed_to_value(struct Lexed* l, struct Env* e) {
+  int n;
+  sscanf(l->s, " %n", &n);
+  l->s += n;
+  n = 0;
   struct Value* v = malloc(sizeof(struct Value));
-  switch (l->type) {
+  if (*l->s == '\0') v->type = NIL;
+  else if (strchr("()'`,", *l->s)) { v->type = CHAR; v->c = *(l->s++); }
+  else if (sscanf(l->s, "%f%n", &v->n, &n)) v->type = NUM;
+  else if (sscanf(l->s, "\"%[^\"]\"%n", (v->s = malloc(STR_SIZE)), &n)) v->type = STR;
+  else if (sscanf(l->s, "%[^()'`, \t\n]%n", (v->s = malloc(SYM_SIZE)), &n)) v->type = SYM;
+  else fprintf(stderr, "Syntax Error: Could not parse at\n  %s\n  ^\n", l->s);
+  l->s += n;
+  return v;
+}
+
+struct Value* parse(struct Lexer* l) {
+  struct Value* v = get_token(l);
+  switch  (v->type) {
+    case SYM: case NUM: case STR: return v;
+    case CHAR:
+      switch (v->c) {
+        case '(': return parse_expr(l);
+        case '\'': return list_to_value(value_list(2, string("quote"), parse(l)));
+        case '`': return list_to_value(value_list(2, string("quasiquote"), parse(l)));
+        case ',': return list_to_value(value_list(2, string("unquote"), parse(l)));
+        default: fprintf(stderr, "Unrecognized character: %c\n", v->c);
+                 // ^ Shouldn't ever reach here
+      }
+    default: fprintf(stderr, "Unrecognized token type: %i\n", v->type);
+  }
+}
+
+struct Value* parse_expr(struct Lexer* l) {
+  struct Value* tok;
+  struct ValueList* r = NULL;
+  while (!((tok = get_token(l))->type == CHAR && tok->c == ')')) {
+    r = append(r, parse(pushback(l, tok)));
+  }
+  return list_to_value(r);
+}
+
+struct Value* call(struct Function* fn, struct ValueList* args, struct ValueEnv* ve) {
+  struct ValueEnv* e = child(ve);
+  for (struct ValueList* arg = fn->argnames; arg != NULL; args = args->next, arg = arg->next)
+    env_set(e, arg->here, args->here);
+  return run(fn->code, e);
+}
+
+struct Value* run(struct Value* tree, struct ValueEnv* e) {
+  if (tree->type == SYM) return env_get(e, tree);
+  if (tree->type != LIST) return tree;
+  struct Value* fn = run(tree->l->here, e);
+  struct ValueList* l = NULL;
+  // Check type of fn
+  switch (fn->fn->type) {
+    case NORMAL: case CFN:
+      for (struct ValueList* p = tree->l->next; p != NULL; p = p->next)
+        l = append(l, run(p->here, e));
+      break;
+    case MACRO: case CMAC:
+      l = tree->l->next;
+  }
+  switch (fn->fn->type) {
+    case NORMAL: case MACRO:
+      return call(fn->fn, l, e);
+    case CFN:
+      return fn->fn->cfn(l);
+    case CMAC:
+      return fn->fn->mfn(l, e);
+  }
+}
+
+void print_value(struct Value v, bool quoted, char* end, FILE* fout) {
+  switch (v.type) {
+    case NUM: fprintf(fout, "%f%s", v.n, end); break;
+    case STR: fprintf(fout, "%s%s", v.s, end); break;
     case SYM:
-      free(v);
-      return get(e, l->s);
-    case STR:
-      v->s = l->s;
-      v->type = VSTR;
-      return v;
-    case NUM:
-      v->n = l->n;
-      v->type = VNUM;
-      return v;
+      if (!quoted) putc('\'', fout);
+      fprintf(fout, "%s%s", v.s, end); break;
+    case CHAR: fprintf(fout, "%c%s", v.c, end); break;
+    case LIST:
+      if (!quoted) putc('\'', fout);
+      putc('(', stdout);
+      for (struct ValueList* vl = v.l; vl != NULL; vl = vl->next)
+        print_value(*vl->here, true, " ", fout);
+      fprintf(fout, "\b)%s", end);
+      break;
+    case DICT:
+      fprintf(fout, "DICTIONARY%s", end);     // Finish
+    case FN:
+      fprintf(fout, "FUNCTION%s", end);   // Finish
+    case NIL:
+      break;
     default:
-      fprintf(stderr, "Lexed value cannot be converted: %i\n", l->type);
-      exit(1);
+      fprintf(fout, "UNKNOWN%s", end);   // Finish
   }
 }
 
-struct Value* run(struct Env* e, struct ParseTree* pt) {
-  if (pt->is_single) {
-    //return lexed_to_value(pt->single, e);
-    return lexed_to_value(pt->single, e);
-  }
-  struct Value* f = run(e, pt->node);
-  if (f->type == VMAC) {   // Finish
-  } else if (f->type == VFUN) {
-    struct ArgList* al = malloc(sizeof(struct ArgList));
-    al->here = NULL;
-    al->next = NULL;
-    struct ArgList* im = al;
-    for (struct BranchList* bl = pt->branches; bl->next != NULL; bl = bl->next) {  // TODO: Fix branchlist structure
-      im = _al_append(im, run(e, bl->here));
-    }
-    im->next = NULL;   // Check logic
-    if (f->fn->type == PRIMITIVE) {
-      return f->fn->cfn(al);
-    //} else if (f->fn->type == NORMAL) {
-    //  struct Env* ec = child(e);
-    //  ;
-    } else perror("???");
-  } else {
-    perror("Uncallable object called");    // Improve error messages
-  };
+struct Value* run_string(char* s, struct ValueEnv* ve) {
+  struct Lexer* l = lex(s);
+  struct Value* pt = parse(l);
+  return run(pt, ve);
 }
 
-// Main
+void repl(struct ValueEnv* ve) {
+  char* buf = malloc(sizeof(char) * 200);
+  puts("Repl started");
+  while (true) {
+    if (fgets(buf, 200, stdin) == NULL) break;
+    printf("=> ");
+    print_value(*run_string(buf, ve), false, "\n", stdout);
+  }
+}
 
 int main() {
-	// char* s = "(define test `(+ 1 ,2 \"asdf\"))";
-  char* s = "(+ (+ 1 2) 2)";
-	puts(s);
-	lex(s);
-	struct ParseTree* pt = parse();
-	puts("Parsed");
-	print_parsetree(pt, "");
-  struct Env* e = get_base_stdlib();
-  print_value(run(e, pt));
-	return 0;
+  struct ValueEnv* e = get_stdlib();
+  repl(e);
+  run_string("(+ 1 1)", e);
+  return 0;
 }

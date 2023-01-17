@@ -12,7 +12,7 @@ struct Value* mac_to_value(struct Value* (*)(struct ValueList*, struct ValueEnv*
 
 // Core
 struct Value* cmac_if(struct ValueList*);
-struct Value* cmac_lambda(struct ValueList*);
+struct Value* cmac_lambda(struct ValueList*, struct ValueEnv*);
 struct Value* cfn_display(struct ValueList*);
 
 // CoreExt

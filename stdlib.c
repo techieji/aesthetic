@@ -25,6 +25,16 @@ struct Value* cfn_display(struct ValueList* vl) {
   return idx(vl, 0);   // Return NIL!!
 }
 
+struct Value* cmac_lambda(struct ValueList* vl, struct ValueEnv* ve) {
+  struct Value* v = malloc(sizeof(struct Value));
+  v->type = FN;
+  v->fn = malloc(sizeof(struct Function));
+  v->fn->type = NORMAL;
+  v->fn->argnames = vl->here->l;
+  v->fn->code = vl->next->here;
+  return v;
+}
+
 // CoreExt
 
 struct Value* cmac_define(struct ValueList* vl, struct ValueEnv* ve) {
@@ -47,6 +57,7 @@ struct ValueEnv* get_stdlib(void) {
   struct ValueEnv* e = child(NULL);
 #if CORE
   env_set(e, symbol("display"), fn_to_value(cfn_display));
+  env_set(e, symbol("lambda"), mac_to_value(cmac_lambda));
 #endif
 #if COREEXT
   env_set(e, symbol("define"), mac_to_value(cmac_define));

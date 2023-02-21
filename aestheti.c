@@ -1,14 +1,14 @@
 #include "aestheti.h"
 
-bool value_equal(struct Value v1, struct Value v2) {
-  if (v1.type == v2.type) {
-    switch (v1.type) {
+bool value_equal(struct Value* v1, struct Value* v2) {
+  if (v1->type == v2->type) {
+    switch (v1->type) {
       case NUM:
       case CHAR:
-        return v1.n == v2.n;
+        return v1->n == v2->n;
       case STR:
-      case SYM:
-        return strcmp(v1.s, v2.s) == 0;
+      case SYM:   // Add reference semantics?
+        return strcmp(v1->s, v2->s) == 0;
       case NIL:
         return true;
       // List, dict, env are not supported yet and return false
@@ -17,26 +17,16 @@ bool value_equal(struct Value v1, struct Value v2) {
   return false;
 }
 
-struct Value* number(float f) {
-  struct Value* v = malloc(sizeof(struct Value));
-  v->type = NUM;
-  v->n = f;
-  return v;
-}
+#define MAKER(name, arg_type, enum_type, field) struct Value* name (arg_type s) {\
+                                       struct Value* v = malloc(sizeof(struct Value));\
+                                       v->type = enum_type; v-> field = s;\
+                                       return v; }
 
-struct Value* symbol(char* s) {
-  struct Value* v = malloc(sizeof(struct Value));
-  v->type = SYM;
-  v->s = s;
-  return v;
-}
-
-struct Value* string(char* s) {
-  struct Value* v = malloc(sizeof(struct Value));
-  v->type = STR;
-  v->s = s;
-  return v;
-}
+MAKER(number, float, NUM, n)
+MAKER(symbol, char*, SYM, s)
+MAKER(string, char*, STR, s)
+MAKER(boolean, bool, BOOL, b)
+MAKER(list_to_value, struct ValueList*, LIST, l)
 
 struct ValueList* vvalue_list(int n, va_list a) {
   struct ValueList* l = NULL;    // Check logic
@@ -44,13 +34,6 @@ struct ValueList* vvalue_list(int n, va_list a) {
     l = append(l, va_arg(a, struct Value*));
   va_end(a);
   return l;
-}
-
-struct Value* list_to_value(struct ValueList* vl) {
-  struct Value* v = malloc(sizeof(struct Value));
-  v->type = LIST;
-  v->l = vl;
-  return v;
 }
 
 struct ValueList* value_list(int n, ...) {
@@ -72,7 +55,7 @@ struct ValueList* append(struct ValueList* vl, struct Value* v) {  // Check logi
 
 int find(struct ValueList* vl, struct Value* v) {
   for (int i = 0; vl != NULL; vl = vl->next, i++)
-    if (value_equal(*vl->here, *v))
+    if (value_equal(vl->here, v))
       return i;
   return -1;
 }
@@ -228,6 +211,7 @@ void print_value(struct Value v, bool quoted, char* end, FILE* fout) {
       if (!quoted) putc('\'', fout);
       fprintf(fout, "%s%s", v.s, end); break;
     case CHAR: fprintf(fout, "%c%s", v.c, end); break;
+    case BOOL: fprintf(fout, v.b ? "true%s" : "false%s", end); break;
     case LIST:
       if (!quoted) putc('\'', fout);
       putc('(', stdout);
@@ -262,9 +246,14 @@ void repl(struct ValueEnv* ve) {
   }
 }
 
+#include "tests.c"
+
 int main() {
-  struct ValueEnv* e = get_stdlib();
-  repl(e);
-  run_string("(+ 1 1)", e);
+  if (1) RUN_TESTS();
+  else {
+    struct ValueEnv* e = get_stdlib();
+    repl(e);
+    run_string("(+ 1 1)", e);
+  }
   return 0;
 }

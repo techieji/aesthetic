@@ -17,13 +17,14 @@ struct ValueDict;
 struct ValueEnv;
 struct Function;
 
-enum ValueType { NUM, STR, SYM, CHAR, LIST, DICT, ENV, NIL, FN };
+enum ValueType { NUM, STR, SYM, CHAR, BOOL, LIST, DICT, ENV, NIL, FN };
 struct Value {
   enum ValueType type;
   union {
     float n;
     char* s;
     char c;
+    bool b;
     struct ValueList* l;
     struct ValueDict* d;
     struct ValueEnv* e;
@@ -57,11 +58,12 @@ struct Function {
   };
 };
 
-bool value_equal(struct Value, struct Value);
+bool value_equal(struct Value*, struct Value*);
 
-struct Value* number(float s);   // Turn into a single macro (20 loc)
-struct Value* symbol(char* s);
-struct Value* string(char* s);
+struct Value* number(float);   // Turn into a single macro (20 loc)
+struct Value* symbol(char*);
+struct Value* string(char*);
+struct Value* boolean(bool);
 
 struct ValueList* append(struct ValueList*, struct Value*);
 struct Value* list_to_value(struct ValueList*);

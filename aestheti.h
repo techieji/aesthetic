@@ -10,6 +10,12 @@
 #define STR_SIZE 128
 #define SYM_SIZE 16    // Small variables
 
+// Rename
+#define MAKER(name, arg_type, enum_type, field) struct Value* name (arg_type s) {\
+                                       struct Value* v = malloc(sizeof(struct Value));\
+                                       v->type = enum_type; v-> field = s;\
+                                       return v; }
+
 // Values
 
 struct ValueList;
@@ -64,9 +70,10 @@ struct Value* number(float);   // Turn into a single macro (20 loc)
 struct Value* symbol(char*);
 struct Value* string(char*);
 struct Value* boolean(bool);
+struct Value* nil(struct ValueList*);
+struct Value* list_to_value(struct ValueList*);
 
 struct ValueList* append(struct ValueList*, struct Value*);
-struct Value* list_to_value(struct ValueList*);
 struct ValueList* value_list(int i, ...);
 struct ValueList* vvalue_list(int i, va_list l);
 int find(struct ValueList*, struct Value*);
@@ -102,4 +109,5 @@ struct ValueEnv* get_stdlib(void);
 
 // Logging
 
+#define log_value(v) print_value(*v, true, "\n", stdout)
 void print_value(struct Value, bool, char*, FILE*);

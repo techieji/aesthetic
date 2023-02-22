@@ -14,6 +14,9 @@ struct Value* mac_to_value(struct Value* (*)(struct ValueList*, struct ValueEnv*
 struct Value* cmac_if(struct ValueList*, struct ValueEnv*);
 struct Value* cmac_lambda(struct ValueList*, struct ValueEnv*);
 struct Value* cfn_display(struct ValueList*);
+struct Value* cfn_idx(struct ValueList*);
+struct Value* cfn_equal(struct ValueList*);
+struct Value* cfn_append(struct ValueList*);
 
 // CoreExt
 

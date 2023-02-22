@@ -1,34 +1,31 @@
 #include "aestheti.h"
+#include "stdlib.h"
 
 bool value_equal(struct Value* v1, struct Value* v2) {
-  if (v1->type == v2->type) {
-    switch (v1->type) {
-      case NUM:
-      case CHAR:
-        return v1->n == v2->n;
-      case STR:
-      case SYM:   // Add reference semantics?
-        return strcmp(v1->s, v2->s) == 0;
-      case NIL:
-        return true;
-      // List, dict, env are not supported yet and return false
-    }
-  }
-  return false;
+  return cfn_equal(value_list(2, v1, v2))->b;
 }
 
-#define MAKER(name, arg_type, enum_type, field) struct Value* name (arg_type s) {\
-                                       struct Value* v = malloc(sizeof(struct Value));\
-                                       v->type = enum_type; v-> field = s;\
-                                       return v; }
+struct Value* idx(struct ValueList* vl, int n) {
+  return cfn_idx(value_list(2, list_to_value(vl), number((float)n)));   // Might hit performance
+}
+
+struct ValueList* append(struct ValueList* vl, struct Value* v) {
+  struct ValueList* al = malloc(sizeof(struct ValueList*));   // Move list-building into logic into value_list
+  al->here = list_to_value(vl);
+  al->next = malloc(sizeof(struct ValueList*));
+  al->next->here = v;
+  al->next->next = NULL;
+  return cfn_append(al)->l;
+}
 
 MAKER(number, float, NUM, n)
 MAKER(symbol, char*, SYM, s)
 MAKER(string, char*, STR, s)
 MAKER(boolean, bool, BOOL, b)
+MAKER(nil, struct ValueList*, NIL, l)    // fix
 MAKER(list_to_value, struct ValueList*, LIST, l)
 
-struct ValueList* vvalue_list(int n, va_list a) {
+struct ValueList* vvalue_list(int n, va_list a) {  // Shouldn't rely on append
   struct ValueList* l = NULL;    // Check logic
   for (int i = 0; i < n; i++)
     l = append(l, va_arg(a, struct Value*));
@@ -42,31 +39,11 @@ struct ValueList* value_list(int n, ...) {
   return vvalue_list(n, args);
 }
 
-struct ValueList* append(struct ValueList* vl, struct Value* v) {  // Check logic
-  if (vl == NULL) {
-    struct ValueList* r = malloc(sizeof(struct ValueList));
-    *r = (struct ValueList){ v, NULL };
-    return r;
-  } else {
-    vl->next = append(vl->next, v);          // Can definitely make this iterative
-    return vl;
-  }
-}
-
 int find(struct ValueList* vl, struct Value* v) {
   for (int i = 0; vl != NULL; vl = vl->next, i++)
     if (value_equal(vl->here, v))
       return i;
   return -1;
-}
-
-struct Value* idx(struct ValueList* vl, int n) {
-  int i;
-  for (i = 0; i < n && vl != NULL; i++) vl = vl->next;
-  if (i == n) return vl->here;
-  fprintf(stderr, "IndexError: %i is greater than list len %i\n", n, i);
-  print_value(*list_to_value(vl), false, "\n", stderr);
-  return NULL;
 }
 
 struct Value* dict_get(struct ValueDict* vd, struct Value* v) {

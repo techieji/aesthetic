@@ -49,6 +49,33 @@ struct Value* cmac_lambda(struct ValueList* vl, struct ValueEnv* ve) {
   return v;
 }
 
+struct Value* cfn_idx(struct ValueList* al) {
+  struct ValueList* vl = al->here->l;
+  int n = (int)al->next->here->n;
+  int i;
+  for (i = 0; i < n && vl != NULL; i++) vl = vl->next;
+  if (i == n) return vl->here;
+  fprintf(stderr, "IndexError: %i is greater than list len %i\n", n, i);
+  print_value(*list_to_value(vl), false, "\n", stderr);
+  return NULL;
+}
+
+struct Value* cfn_append(struct ValueList* al) {  // Check logic
+  struct ValueList* vl = al->here->l;
+  struct Value* v = al->next->here;
+  if (vl == NULL) {
+    struct ValueList* r = malloc(sizeof(struct ValueList));
+    *r = (struct ValueList){ v, NULL };
+    return list_to_value(r);
+  } else {
+    struct ValueList* p = vl;
+    while (p->next != NULL) p = p->next;
+    p->next = malloc(sizeof(struct ValueList));
+    *(p->next) = (struct ValueList){ v, NULL };
+    return list_to_value(vl);
+  }
+}
+
 // CoreExt
 
 struct Value* cmac_define(struct ValueList* vl, struct ValueEnv* ve) {
@@ -61,7 +88,20 @@ struct Value* cmac_define(struct ValueList* vl, struct ValueEnv* ve) {
 struct Value* cfn_equal(struct ValueList* vl) {
   struct Value* v1 = idx(vl, 0);
   struct Value* v2 = idx(vl, 1);
-  if (v1->type != v2->type) return false;
+  if (v1->type == v2->type) {
+    switch (v1->type) {
+      case NUM:
+      case CHAR:
+        return boolean(v1->n == v2->n);
+      case STR:
+      case SYM:   // Add reference semantics?
+        return boolean(strcmp(v1->s, v2->s) == 0);
+      case NIL:
+        return boolean(true);
+      // List, dict, env are not supported yet and return false
+    }
+  }
+  return boolean(false);
 }
 
 // Arith
@@ -100,9 +140,11 @@ struct ValueEnv* get_stdlib(void) {
   env_set(e, symbol("display"), fn_to_value(cfn_display));
   env_set(e, symbol("if"), mac_to_value(cmac_if));
   env_set(e, symbol("lambda"), mac_to_value(cmac_lambda));
+  env_set(e, symbol("idx"), fn_to_value(cfn_idx));
 #endif
 #if COREEXT
   env_set(e, symbol("define"), mac_to_value(cmac_define));
+  env_set(e, symbol("eq?"), fn_to_value(cfn_equal));
   env_set(e, symbol("true"), boolean(true));
   env_set(e, symbol("false"), boolean(false));
 #endif

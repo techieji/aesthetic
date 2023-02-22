@@ -10,12 +10,7 @@ struct Value* idx(struct ValueList* vl, int n) {
 }
 
 struct ValueList* append(struct ValueList* vl, struct Value* v) {
-  struct ValueList* al = malloc(sizeof(struct ValueList*));   // Move list-building into logic into value_list
-  al->here = list_to_value(vl);
-  al->next = malloc(sizeof(struct ValueList*));
-  al->next->here = v;
-  al->next->next = NULL;
-  return cfn_append(al)->l;
+  return cfn_append(value_list(2, list_to_value(vl), v))->l;
 }
 
 MAKER(number, float, NUM, n)
@@ -25,11 +20,16 @@ MAKER(boolean, bool, BOOL, b)
 MAKER(nil, struct ValueList*, NIL, l)    // fix
 MAKER(list_to_value, struct ValueList*, LIST, l)
 
-struct ValueList* vvalue_list(int n, va_list a) {  // Shouldn't rely on append
-  struct ValueList* l = NULL;    // Check logic
-  for (int i = 0; i < n; i++)
-    l = append(l, va_arg(a, struct Value*));
-  va_end(a);
+struct ValueList* vvalue_list(int n, va_list a) {
+  if (n == 0) return NULL;
+  struct ValueList* l = malloc(sizeof(struct ValueList*)), *p = l;
+  *l = (struct ValueList){ va_arg(a, struct Value*), NULL };
+  for (int i = 1; i < n; i++) {
+    p->next = malloc(sizeof(struct ValueList));
+    p = p->next;
+    p->here = va_arg(a, struct Value*);
+  }
+  p->next = NULL;
   return l;
 }
 

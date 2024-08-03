@@ -10,6 +10,7 @@ void print_token(struct Value* tok) {
     switch (tok->type) {
         case OPEN: puts("OPEN"); return;
         case CLOSE: puts("CLOSE"); return;
+        case QUOTE: puts("QUOTE"); return;
         case SYM: printf("SYM\t%s\n", tok->s); return;
         case FLOAT: printf("FLOAT\t%lf\n", tok->f); return;
         case INT: printf("INT\t%d\n", tok->i); return;
@@ -67,6 +68,7 @@ struct Value* construct(enum Type type, ...) {
         case OPEN:
         case CLOSE:
         case NIL:
+        case QUOTE:
         case END:
             return v;
         case INT:
@@ -138,6 +140,7 @@ bool equal_values(struct Value* v1, struct Value* v2) {
         case OPEN:
         case CLOSE:
         case NIL:
+        case QUOTE:
         case END:
             return true;
         case SYM:
@@ -208,19 +211,24 @@ struct Value* get_env(struct Value* args, struct Value** env) {
     return *env;
 }
 
+struct Value* quote(struct Value* args, struct Value** env) {
+    return args->car;
+}
+
 #define DECL(name, type, cfn) construct_triple(construct(SYM, name), construct(type, cfn), NULL)
 
 struct Value* get_stdlib(void) {
     struct Value* env;
     env = construct_triple(construct(SYM, "globals"), NULL, NULL);
     env->cbr = env;
-    chain(6,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
+    chain(7,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
         env,
         DECL("+", CFN, add),
         DECL("exit", CFN, exit_),
         DECL("define", CMACRO, define),
         DECL("lambda", CMACRO, lambda),
-        DECL("get-env", CMACRO, get_env)
+        DECL("get-env", CMACRO, get_env),
+        DECL("quote", CMACRO, quote)
     );
     return env;
 }

@@ -3,11 +3,10 @@
 # http://www.catb.org/esr/structure-packing/
 
 run:
-	gcc aestheti.c stdlib.c -o a.out -Os
+	gcc aestheti.c stdlib.c -o a.out -g
 	./a.out
 
 small:
-	gcc aestheti.c stdlib.c -o a.out -Os -fconserve-stack -ffunction-sections -fdata-sections -Wl,--gc-sections -Wl,-flto -fconserve-stack
-	strip a.out
-	strip -R.comment a.out
-	./a.out
+	gcc aestheti.c stdlib.c -o aes -Os -fconserve-stack -ffunction-sections -fdata-sections -Wl,--gc-sections -fconserve-stack -flto=auto
+	strip aes
+	strip -R.comment aes

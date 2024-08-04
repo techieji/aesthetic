@@ -51,6 +51,9 @@ void print_value(struct Value* tree) {
         case CFN:
             printf("[compiled function at %p]", tree->cfn);
             return;
+        case FN:
+            printf("[user-defined function]");
+            return;
         default: printf("[undefined]");
     }
 }
@@ -78,8 +81,9 @@ struct Value* construct(enum Type type, ...) {
         case SYM: case STR:
             v->s = va_arg(l, char*);
             break;
-        case PAIR:
         case FN:     // TODO update when adding closures
+            v->cbr = va_arg(l, struct Value*);
+        case PAIR:
             v->car = va_arg(l, struct Value*);
             v->cdr = va_arg(l, struct Value*);
             break;
@@ -175,6 +179,7 @@ struct Value* add(struct Value* args) {
 }
 
 struct Value* exit_(struct Value* args) {
+    if (args->type == NIL) exit(0);
     exit(args->car->i);
     return NULL;
 }
@@ -186,14 +191,24 @@ struct Value* define(struct Value* args, struct Value** env) {
     return v;
 }
 
+struct Value* lambda(struct Value* args, struct Value** env) {
+    return construct(FN, *env, args->car, args->cdr->car);
+}
+
+struct Value* get_env(struct Value* args, struct Value** env) {
+    return *env;
+}
+
 #define DECL(name, type, cfn) construct(PAIR, construct(SYM, name), construct(type, cfn))
 
 struct Value* get_stdlib(void) {
     struct Value* env = construct(NIL);
-    env = construct_list(3,
+    env = construct_list(5,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
             DECL("+", CFN, add),
             DECL("exit", CFN, exit_),
-            DECL("define", CMACRO, define)
+            DECL("define", CMACRO, define),
+            DECL("lambda", CMACRO, lambda),
+            DECL("get-env", CMACRO, get_env)
     );
     return env;
 }

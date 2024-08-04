@@ -130,19 +130,6 @@ struct Value* eval(struct Value* t, struct Value** env) {
             }
         default:
             printf("INVALID OBJECT, CANNOT BE EVALUATED. STOPPING.\n");
-            if (fn->type == CMACRO) return fn->cmac(t->cdr, env);
-            for (struct Value* v = t->cdr; v->type != NIL; v = v->cdr)
-                v->car = eval(v->car, env);
-            if (fn->type == CFN) return fn->cfn(t->cdr);
-            if (fn->type == FN) {
-                struct Value* new_env = *env;
-                struct Value* vs = t;
-                for (struct Value* var = fn->car; var->type != NIL; var = var->cdr)
-                    new_env = construct(PAIR, construct(PAIR, var, (vs = vs->cdr)), new_env);
-                return eval(fn->cdr, &new_env);
-            }
-        default:
-            printf("CANNOT BE EVALUATED. STOPPING.\n");
             printf("OBJECT: ");
             print_value(t);
             printf("\n");

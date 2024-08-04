@@ -9,6 +9,7 @@ void print_value(struct Value*);
 
 // Helpers
 struct Value* construct(enum Type, ...);
+struct Value* construct_triple(struct Value*, struct Value*, struct Value*);
 bool equal_values(struct Value*, struct Value*);
 char* extract_string(char*, int);
 bool is_extended_alpha(char);

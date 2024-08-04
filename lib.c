@@ -81,9 +81,10 @@ struct Value* construct(enum Type type, ...) {
         case SYM: case STR:
             v->s = va_arg(l, char*);
             break;
-        case FN:     // TODO update when adding closures
+        case FN:
             v->cbr = va_arg(l, struct Value*);
         case PAIR:
+            if (type != FN) v->cbr = construct(NIL);
             v->car = va_arg(l, struct Value*);
             v->cdr = va_arg(l, struct Value*);
             break;
@@ -98,13 +99,21 @@ struct Value* construct(enum Type type, ...) {
     return v;
 }
 
-struct Value* construct_list(int len, ...) {
+struct Value* construct_triple(struct Value* car, struct Value* cbr, struct Value* cdr) {
+    struct Value* pair = construct(PAIR, car, cdr);
+    pair->cbr = cbr;
+    return pair;
+}
+
+void chain(int len, ...) {
+    if (len == 0) return;
     va_list l;
     va_start(l, len);
-    struct Value* v = construct(NIL);
-    for (int i = 0; i < len; i++)
-        v = construct(PAIR, va_arg(l, struct Value*), v);
-    return reverse(v);
+    struct Value* prev = va_arg(l, struct Value*);
+    for (int i = 1; i < len; i++)
+        prev = prev->cdr = va_arg(l, struct Value*);
+    prev->cdr = construct(NIL);
+    va_end(l);
 }
 
 char* extract_string(char* s, int i) {
@@ -142,7 +151,7 @@ bool equal_values(struct Value* v1, struct Value* v2) {
             return v1->i == v2->i;
         case PAIR:     // May not work for very long lists
         case FN:
-            return equal_values(v1->car, v2->car) && equal_values(v1->car, v2->car);
+            return equal_values(v1->car, v2->car) && equal_values(v1->car, v2->car) && equal_values(v1->cbr, v2->cbr);
     }
     return false;
 }
@@ -187,7 +196,7 @@ struct Value* exit_(struct Value* args) {
 struct Value* define(struct Value* args, struct Value** env) {
     struct Value* k = args->car;
     struct Value* v = eval(args->cdr->car, env);
-    *env = construct(PAIR, construct(PAIR, k, v), *env);
+    *env = construct_triple(k, v, *env);
     return v;
 }
 
@@ -199,16 +208,19 @@ struct Value* get_env(struct Value* args, struct Value** env) {
     return *env;
 }
 
-#define DECL(name, type, cfn) construct(PAIR, construct(SYM, name), construct(type, cfn))
+#define DECL(name, type, cfn) construct_triple(construct(SYM, name), construct(type, cfn), NULL)
 
 struct Value* get_stdlib(void) {
-    struct Value* env = construct(NIL);
-    env = construct_list(5,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
-            DECL("+", CFN, add),
-            DECL("exit", CFN, exit_),
-            DECL("define", CMACRO, define),
-            DECL("lambda", CMACRO, lambda),
-            DECL("get-env", CMACRO, get_env)
+    struct Value* env;
+    env = construct_triple(construct(SYM, "globals"), NULL, NULL);
+    env->cbr = env;
+    chain(6,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
+        env,
+        DECL("+", CFN, add),
+        DECL("exit", CFN, exit_),
+        DECL("define", CMACRO, define),
+        DECL("lambda", CMACRO, lambda),
+        DECL("get-env", CMACRO, get_env)
     );
     return env;
 }

@@ -59,9 +59,24 @@ void print_value(struct Value* tree) {
     }
 }
 
+struct Value* all_values = NULL;
+
+void register_value(struct Value* v) {
+    if (all_values == NULL) {
+        all_values = malloc(sizeof(struct Value));
+        all_values->type = NIL;
+    }
+    struct Value* temp = malloc(sizeof(struct Value));
+    temp->type = PAIR;
+    temp->car = v;
+    temp->cdr = all_values;
+    all_values = temp;
+}
+
 struct Value* construct(enum Type type, ...) {
     struct Value* v = malloc(sizeof(struct Value));
     v->type = type;
+    register_value(v);
     va_list l;
     va_start(l, type);
     switch (type) {
@@ -99,6 +114,11 @@ struct Value* construct(enum Type type, ...) {
     }
     va_end(l);
     return v;
+}
+
+void destruct(struct Value* v) {
+    if (v->type == SYM || v->type == STR) free(v->s);
+    free(v);
 }
 
 struct Value* construct_triple(struct Value* car, struct Value* cbr, struct Value* cdr) {
@@ -214,6 +234,10 @@ struct Value* get_env(struct Value* args, struct Value** env) {
 struct Value* quote(struct Value* args, struct Value** env) {
     return args->car;
 }
+
+struct Value* car(struct Value* args) { return args->car->car; }
+struct Value* cbr(struct Value* args) { return args->car->cbr; }
+struct Value* cdr(struct Value* args) { return args->car->cdr; }
 
 #define DECL(name, type, cfn) construct_triple(construct(SYM, name), construct(type, cfn), NULL)
 

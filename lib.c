@@ -4,6 +4,7 @@
 #include <ctype.h>
 #include <string.h>
 #include <stdarg.h>
+#include <dlfcn.h>
 #include "lib.h"
 
 void print_token(struct Value* tok) {
@@ -59,38 +60,6 @@ void print_value(struct Value* tree) {
         default: printf("[undefined]");
     }
 }
-
-/*
-int snprint_value(char* buf, size_t maxn, struct Value* tree) {
-    if (maxn == 0) return 0;
-    int n = 0;
-    switch (tree->type) {
-        case SYM: case ERROR: return snprintf(buf, maxn "%s", tree->s);
-        case STR: return snprintf(buf, maxn, "\"%s\"", tree->s);
-        case FLOAT: return snprintf(buf, maxn, "%lf", tree->f);
-        case INT: return snprintf(buf, maxn, "%d", tree->i);
-        case NIL: return snprintf(buf, maxn, "nil");
-        case PAIR:
-            n += snprintf(buf + n, "(");
-            n += snprint_value(buf + n, tree->car);
-            while ((tree = tree->cdr)->type == PAIR) {
-                n += sprintf(buf + n, " ");
-                n += sprint_value(buf + n, tree->car);
-            }
-            if (tree->type != NIL) {
-                n += sprintf(buf + n, " . ");
-                n += sprint_value(buf + n, tree);
-            }
-            n += sprintf(buf + n, ")");
-            return n;
-        case CFN:
-            return sprintf(buf, "[compiled function at %p]", tree->cfn);
-        case FN:
-            return sprintf(buf, "[user-defined function]");
-        default: return printf(buf, "[undefined]");
-    }
-}
-*/
 
 struct Value* all_values = NULL;
 
@@ -228,6 +197,20 @@ bool is_extended_alpha(char c) {
     return isalpha(c) || isdigit(c) || (strchr("+-.*/<=>!?:$%_&~^", c) != NULL);
 }
 
+/* * * * * * * * * * *
+ *   TYPE CHECKING   *
+ * * * * * * * * * * */
+
+bool type_check(struct Value* v, struct Value* type) {
+    if (v->type != type->type) return false;
+    if (v->type == PAIR)
+        return type_check(v->car, type->car) && type_check(v->cdr, type->cdr);  // cbr?
+    return true;
+}
+
+#define CHECK(fn, v, type) if (!type_check(v, type))\
+                               return construct_error("TYPE ERROR IN %s", #fn);
+
 /* * * * * * * * * * * * * * * *
  * STDLIB INITIALIZATION       *
  * * * * * * * * * * * * * * * */
@@ -263,8 +246,9 @@ struct Value* exit_(struct Value* args) {
 }
 
 struct Value* define(struct Value* args, struct Value** env) {
-    struct Value* k = args->car;
-    struct Value* v = eval(args->cdr->car, env);
+    bool cond = (args->car->type == PAIR);
+    struct Value* k = cond ? args->car->car : args->car;
+    struct Value* v = cond ? construct(FN, *env, args->car->cdr, args->cdr->car) : eval(args->cdr->car, env);
     *env = construct_triple(k, v, *env);
     return v;
 }
@@ -275,13 +259,34 @@ struct Value* get_env(struct Value* args, struct Value** env) { return *env; }
 struct Value* quote(struct Value* args, struct Value** env) { return args->car; }
 struct Value* if_(struct Value* args, struct Value** env) { return eval((eval(args->car, env))->b ? args->cdr->car : args->cdr->cdr->car, env); }
 
-struct Value* car(struct Value* args) { return args->car->car; }
-struct Value* cbr(struct Value* args) { return args->car->cbr; }
-struct Value* cdr(struct Value* args) { return args->car->cdr; }
+//struct Value* car(struct Value* args) { return args->car->car; }
+//struct Value* cbr(struct Value* args) { return args->car->cbr; }
+//struct Value* cdr(struct Value* args) { return args->car->cdr; }
 
 struct Value* display(struct Value* v) { print_value(v->car); return construct(NIL); }
 struct Value* equal(struct Value* vs) {
     return construct(BOOL, equal_values(vs->car, vs->cdr->car));
+}
+
+struct Value* load(struct Value* args, struct Value** env) {
+    FILE* fp = fopen(eval(args->car, env)->s, "r");
+    fseek(fp, 0L, SEEK_END);
+    int size = ftell(fp);
+    char* s = malloc(size * sizeof(char));
+    rewind(fp);
+    fread(s, sizeof(char), size, fp);
+    return run_string(s, env);
+}
+
+struct Value* load_c_fn(struct Value* args) {
+    char* s;
+    void* so = dlopen(args->car->s, RTLD_NOW | RTLD_NODELETE);
+    if ((s = dlerror())) { puts(s); return NULL; }
+    struct Value* ret = construct(CFN, dlsym(so, args->cdr->car->s));
+    if ((s = dlerror())) { puts(s); return NULL; }
+    dlclose(so);
+    if ((s = dlerror())) { puts(s); return NULL; }
+    return ret;
 }
 
 #define DECL(name, type, cfn) construct_triple(construct(SYM, name), construct(type, cfn), NULL)
@@ -291,7 +296,7 @@ struct Value* get_stdlib(void) {
     struct Value* env;
     env = construct_triple(construct(SYM, "globals"), NULL, NULL);
     env->cbr = env;
-    chain(17,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
+    chain(16,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
         env,
         DECL("+", CFN, add),
         DECL("exit", CFN, exit_),
@@ -300,15 +305,17 @@ struct Value* get_stdlib(void) {
         DECL("get-env", CMACRO, get_env),
         DECL("quote", CMACRO, quote),
         DECL("if", CMACRO, if_),
-        DECL("car", CFN, car),
-        DECL("cbr", CFN, cbr),
-        DECL("cdr", CFN, cdr),
+        //DECL("car", CFN, car),
+        //DECL("cbr", CFN, cbr),
+        //DECL("cdr", CFN, cdr),
         DECL("=", CFN, equal),
         DECL("display", CFN, display),
         GVAR("nil", NIL),
         GVAR("true", BOOL, true),
         GVAR("false", BOOL, false),
-        DECL("neg", CFN, neg)
+        DECL("neg", CFN, neg),
+        DECL("load", CMACRO, load),
+        DECL("c-fn", CFN, load_c_fn)
     );
     return env;
 }

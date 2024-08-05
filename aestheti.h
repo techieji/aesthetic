@@ -26,4 +26,5 @@ struct Value {
 
 struct Value* next_token(char**);
 struct Value* parse(char**);
+struct Value* run_string(char*, struct Value**);
 struct Value* eval(struct Value*, struct Value**);

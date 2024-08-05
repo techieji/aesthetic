@@ -55,13 +55,25 @@ struct Value* parse_char(char** s) {
     return NULL;
 }
 
+static struct Value* pushback = NULL;
+
 struct Value* next_token(char** s) {
     while (isspace(**s)) (*s)++;
     struct Value* res;
+    if (pushback != NULL) {
+        res = pushback;
+        pushback = NULL;
+        return res;
+    }
     if ((res = parse_char(s)) != NULL) return res;
     if (**s == '"')  return parse_string(s);
     if (isdigit(**s)) return parse_number(s);
     return parse_symbol(s);
+}
+
+struct Value* peek_token(char** s) {
+    pushback = next_token(s);
+    return pushback;
 }
 
 /* * * * * *
@@ -94,6 +106,8 @@ struct Value* parse(char** s) {
 // Environments are lists of pairs: '((k1 . v1) (k2 . v2) ...)
 // Functions are pairs: '((arg1 arg2 arg3 ...) . (<code>))        TODO add support for closures
 
+struct Value* fix_null(struct Value* ptr) { return ptr != NULL ? ptr : construct_error("INTERNAL FUNCTION ERROR."); }
+
 struct Value* eval(struct Value* t, struct Value** env) {
     if (t == NULL) return construct(NIL);
     switch (t->type) {
@@ -107,7 +121,7 @@ struct Value* eval(struct Value* t, struct Value** env) {
         case PAIR:
             struct Value* fn = eval(t->car, env);
             if (fn->type == CMACRO)
-                return fn->cmac(t->cdr, env);
+                return fix_null(fn->cmac(t->cdr, env));
 
             struct Value* l = construct(PAIR, construct(END), construct(NIL));    // Dummy starting element
             struct Value* tmp;
@@ -118,26 +132,17 @@ struct Value* eval(struct Value* t, struct Value** env) {
             l = reverse(l);
             switch (fn->type) {
                 case CFN:
-                    return fn->cfn(l->cdr);
+                    return fix_null(fn->cfn(l->cdr));
                 case FN:
                     struct Value* new_env = fn->cbr;
                     for (struct Value* var = fn->car; var->type != NIL; var = var->cdr)
                         new_env = construct_triple(var->car, (l = l->cdr)->car, new_env);
                     return eval(fn->cdr, &new_env);
                 default:
-                    printf("NOT A FUNCTION.\n");
-                    printf("OBJECT: ");
-                    print_value(t);
-                    printf("\n");
-                    exit(1);
+                    return construct_error("NOT A FUNCTION.");
             }
         default:
-            printf("INVALID OBJECT, CANNOT BE EVALUATED. STOPPING.\n");
-            printf("OBJECT: ");
-            print_value(t);
-            printf("\n");
-            exit(1);
-            return NULL;
+            return construct_error("INVALID OBJECT. YOU ARE BEING A BIT GOOFY.");
     }
 }
 
@@ -185,19 +190,26 @@ void gc(struct Value* env) {
  *        MAIN       *
  * * * * * * * * * * */
 
+struct Value* run_string(char* s, struct Value** env) {
+    char** ptr = &s;
+    struct Value* res = construct(NIL);
+    while (peek_token(ptr)->type != END && res->type != ERROR) {
+        struct Value* tree = setjmp(parse_error) == 0 ? parse(ptr) : construct_error("EOF ERROR.");
+        res = eval(tree, env);
+    }
+    next_token(ptr);
+    return res;
+}
 
 int main() {
     char* s = malloc(100 * sizeof(char));
-    //char* s = "((lambda (x y) x) 1 2)";
-    char** ptr = &s;
     struct Value* env = get_stdlib();
-    while (true) {
+    while (!feof(stdin)) {
         printf("> ");
         fgets(s, 100, stdin);
-        struct Value* tree = setjmp(parse_error) == 0 ? parse(ptr) : construct_error("EOF ERROR.");
-        print_value(eval(tree, &env));
+        print_value(run_string(s, &env));
         printf("\n");
-        gc(env);
+        // gc(env);         // TODO doesn't work with quotation (symbols?)
     }
     return 0;
 }

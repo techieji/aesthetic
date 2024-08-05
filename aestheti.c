@@ -2,6 +2,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <setjmp.h>
 #include "aestheti.h"
 #include "lib.h"
 
@@ -67,6 +68,8 @@ struct Value* next_token(char** s) {
  * PARSER  *
  * * * * * */
 
+jmp_buf parse_error;
+
 struct Value* parse(char** s) {
     struct Value* tok = next_token(s);
     switch (tok->type) {
@@ -78,8 +81,7 @@ struct Value* parse(char** s) {
         case QUOTE:
             return construct(PAIR, construct(SYM, "quote"), construct(PAIR, parse(s), construct(NIL)));
         case END:
-            printf("HIT EOF. STOPPING.\n");
-            exit(1);
+            longjmp(parse_error, 1);
             return NULL;
         default:
             return tok;
@@ -95,23 +97,24 @@ struct Value* parse(char** s) {
 struct Value* eval(struct Value* t, struct Value** env) {
     if (t == NULL) return construct(NIL);
     switch (t->type) {
-        case FLOAT: case INT: case STR:
+        case FLOAT: case INT: case STR: case ERROR:
             return t;
         case SYM:
             for (struct Value* v = *env; v->type != NIL; v = v->cdr)
                 if (equal_values(v->car, t))
                     return v->cbr;
-            printf("SYMBOL %s IS NOT BOUND. STOPPING.\n", t->s);
-            exit(1);
-            return NULL;
+            return construct_error("SYMBOL %s IS NOT BOUND.", t->s);
         case PAIR:
             struct Value* fn = eval(t->car, env);
             if (fn->type == CMACRO)
                 return fn->cmac(t->cdr, env);
 
             struct Value* l = construct(PAIR, construct(END), construct(NIL));    // Dummy starting element
-            for (struct Value* v = t->cdr; v->type != NIL; v = v->cdr)
-                l = construct(PAIR, eval(v->car, env), l);
+            struct Value* tmp;
+            for (struct Value* v = t->cdr; v->type != NIL; v = v->cdr) {
+                if ((tmp = eval(v->car, env))->type == ERROR) return tmp;
+                l = construct(PAIR, tmp, l);
+            }
             l = reverse(l);
             switch (fn->type) {
                 case CFN:
@@ -122,7 +125,7 @@ struct Value* eval(struct Value* t, struct Value** env) {
                         new_env = construct_triple(var->car, (l = l->cdr)->car, new_env);
                     return eval(fn->cdr, &new_env);
                 default:
-                    printf("NOT A FUNCTION. STOPPING.\n");
+                    printf("NOT A FUNCTION.\n");
                     printf("OBJECT: ");
                     print_value(t);
                     printf("\n");
@@ -178,6 +181,11 @@ void gc(struct Value* env) {
     sweep();
 }
 
+/* * * * * * * * * * *
+ *        MAIN       *
+ * * * * * * * * * * */
+
+
 int main() {
     char* s = malloc(100 * sizeof(char));
     //char* s = "((lambda (x y) x) 1 2)";
@@ -186,14 +194,10 @@ int main() {
     while (true) {
         printf("> ");
         fgets(s, 100, stdin);
-        //struct Value* tok = construct(NIL);
-        //while (tok->type != END) print_token(tok = next_token(ptr));
-        struct Value* tree = parse(ptr);
-        //print_value(tree);
+        struct Value* tree = setjmp(parse_error) == 0 ? parse(ptr) : construct_error("EOF ERROR.");
         print_value(eval(tree, &env));
         printf("\n");
         gc(env);
-        //break;
     }
     return 0;
 }

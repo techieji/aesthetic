@@ -2,11 +2,10 @@
 # https://interrupt.memfault.com/blog/code-size-optimization-gcc-flags
 # http://www.catb.org/esr/structure-packing/
 
-run:
-	gcc aestheti.c stdlib.c -o a.out -g
-	./a.out
+dev:
+	gcc aestheti.c lib.c -o a.out -g -Wall
 
-small:
-	gcc aestheti.c stdlib.c -o aes -Os -fconserve-stack -ffunction-sections -fdata-sections -Wl,--gc-sections -fconserve-stack -flto=auto
+release:
+	gcc aestheti.c lib.c -o aes -Oz -fconserve-stack -ffunction-sections -fdata-sections -Wl,--gc-sections -fconserve-stack -flto=auto
 	strip aes
 	strip -R.comment aes

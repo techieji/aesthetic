@@ -32,9 +32,10 @@ void print_tree(struct Value* tree, int indent_level) {
 
 void print_value(struct Value* tree) {
     switch (tree->type) {
-        case SYM: case STR: printf("%s", tree->s); return;
+        case SYM: case STR: case ERROR: printf("%s", tree->s); return;
         case FLOAT: printf("%lf", tree->f); return;
         case INT: printf("%d", tree->i); return;
+        case BOOL: printf("%s", tree->b ? "true" : "false"); return;
         case NIL: printf("nil"); return;
         case PAIR:
             printf("(");
@@ -58,6 +59,38 @@ void print_value(struct Value* tree) {
         default: printf("[undefined]");
     }
 }
+
+/*
+int snprint_value(char* buf, size_t maxn, struct Value* tree) {
+    if (maxn == 0) return 0;
+    int n = 0;
+    switch (tree->type) {
+        case SYM: case ERROR: return snprintf(buf, maxn "%s", tree->s);
+        case STR: return snprintf(buf, maxn, "\"%s\"", tree->s);
+        case FLOAT: return snprintf(buf, maxn, "%lf", tree->f);
+        case INT: return snprintf(buf, maxn, "%d", tree->i);
+        case NIL: return snprintf(buf, maxn, "nil");
+        case PAIR:
+            n += snprintf(buf + n, "(");
+            n += snprint_value(buf + n, tree->car);
+            while ((tree = tree->cdr)->type == PAIR) {
+                n += sprintf(buf + n, " ");
+                n += sprint_value(buf + n, tree->car);
+            }
+            if (tree->type != NIL) {
+                n += sprintf(buf + n, " . ");
+                n += sprint_value(buf + n, tree);
+            }
+            n += sprintf(buf + n, ")");
+            return n;
+        case CFN:
+            return sprintf(buf, "[compiled function at %p]", tree->cfn);
+        case FN:
+            return sprintf(buf, "[user-defined function]");
+        default: return printf(buf, "[undefined]");
+    }
+}
+*/
 
 struct Value* all_values = NULL;
 
@@ -95,7 +128,9 @@ struct Value* construct(enum Type type, ...) {
         case BOOL:
             v->b = va_arg(l, int);
             break;
-        case SYM: case STR:
+        case SYM:
+        case STR:
+        case ERROR:
             v->s = va_arg(l, char*);
             break;
         case FN:
@@ -117,7 +152,7 @@ struct Value* construct(enum Type type, ...) {
 }
 
 void destruct(struct Value* v) {
-    if (v->type == SYM || v->type == STR) free(v->s);
+    if (v->type == SYM || v->type == STR || v->type == ERROR) free(v->s);
     free(v);
 }
 
@@ -125,6 +160,15 @@ struct Value* construct_triple(struct Value* car, struct Value* cbr, struct Valu
     struct Value* pair = construct(PAIR, car, cdr);
     pair->cbr = cbr;
     return pair;
+}
+
+struct Value* construct_error(char* fmt, ...) {
+    char* buf = malloc(100 * sizeof(char));
+    va_list l;
+    va_start(l, fmt);
+    vsprintf(buf, fmt, l);
+    va_end(l);
+    return construct(ERROR, buf);
 }
 
 void chain(int len, ...) {
@@ -165,6 +209,7 @@ bool equal_values(struct Value* v1, struct Value* v2) {
             return true;
         case SYM:
         case STR:
+        case ERROR:
             return strcmp(v1->s, v2->s) == 0;
         case INT:
         case BOOL:
@@ -209,6 +254,7 @@ struct Value* add(struct Value* args) {
     }
     return v;
 }
+struct Value* neg(struct Value* args) { return construct(INT, -args->car->i); }
 
 struct Value* exit_(struct Value* args) {
     if (args->type == NIL) exit(0);
@@ -223,36 +269,46 @@ struct Value* define(struct Value* args, struct Value** env) {
     return v;
 }
 
-struct Value* lambda(struct Value* args, struct Value** env) {
-    return construct(FN, *env, args->car, args->cdr->car);
-}
+struct Value* lambda(struct Value* args, struct Value** env) { return construct(FN, *env, args->car, args->cdr->car); }
 
-struct Value* get_env(struct Value* args, struct Value** env) {
-    return *env;
-}
-
-struct Value* quote(struct Value* args, struct Value** env) {
-    return args->car;
-}
+struct Value* get_env(struct Value* args, struct Value** env) { return *env; }
+struct Value* quote(struct Value* args, struct Value** env) { return args->car; }
+struct Value* if_(struct Value* args, struct Value** env) { return eval((eval(args->car, env))->b ? args->cdr->car : args->cdr->cdr->car, env); }
 
 struct Value* car(struct Value* args) { return args->car->car; }
 struct Value* cbr(struct Value* args) { return args->car->cbr; }
 struct Value* cdr(struct Value* args) { return args->car->cdr; }
 
+struct Value* display(struct Value* v) { print_value(v->car); return construct(NIL); }
+struct Value* equal(struct Value* vs) {
+    return construct(BOOL, equal_values(vs->car, vs->cdr->car));
+}
+
 #define DECL(name, type, cfn) construct_triple(construct(SYM, name), construct(type, cfn), NULL)
+#define GVAR(name, ...) construct_triple(construct(SYM, name), construct(__VA_ARGS__), NULL)
 
 struct Value* get_stdlib(void) {
     struct Value* env;
     env = construct_triple(construct(SYM, "globals"), NULL, NULL);
     env->cbr = env;
-    chain(7,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
+    chain(17,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
         env,
         DECL("+", CFN, add),
         DECL("exit", CFN, exit_),
         DECL("define", CMACRO, define),
         DECL("lambda", CMACRO, lambda),
         DECL("get-env", CMACRO, get_env),
-        DECL("quote", CMACRO, quote)
+        DECL("quote", CMACRO, quote),
+        DECL("if", CMACRO, if_),
+        DECL("car", CFN, car),
+        DECL("cbr", CFN, cbr),
+        DECL("cdr", CFN, cdr),
+        DECL("=", CFN, equal),
+        DECL("display", CFN, display),
+        GVAR("nil", NIL),
+        GVAR("true", BOOL, true),
+        GVAR("false", BOOL, false),
+        DECL("neg", CFN, neg)
     );
     return env;
 }

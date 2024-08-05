@@ -2,7 +2,8 @@
 enum Type {
     OPEN, CLOSE, QUOTE, END,              // Purely lexical
     SYM, FLOAT, INT, STR,                 // Both lexical and language
-    BOOL, PAIR, FN, CFN, CMACRO, NIL      // Purely language
+    BOOL, PAIR, FN, CFN, CMACRO, NIL,     // Purely language
+    ERROR
 };
 struct Value {
     enum Type type;

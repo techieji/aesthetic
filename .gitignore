@@ -1,2 +1,5 @@
 a.out
 vgcore.*
+*.o
+*.so
+aes

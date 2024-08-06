@@ -1,28 +1,19 @@
 #pragma once
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdbool.h>
-#include <ctype.h>
-#include <string.h>
-#include <stdarg.h>
-#include <dlfcn.h>
 #include "../aestheti.h"
 
-// Logging
-// void print_token(struct Value*);
-// void print_tree(struct Value*, int);
-void print_value(struct Value*);
+#define FN_DECL(name) struct Value* name(struct Value*);
+#define MC_DECL(name) struct Value* name(struct Value*, struct Value**);
 
-// Helpers
-struct Value* construct(enum Type, ...);
-void destruct(struct Value*);
-struct Value* construct_triple(struct Value*, struct Value*, struct Value*);
-struct Value* construct_error(char*, ...);
-//bool equal_values(struct Value*, struct Value*);
-char* extract_string(char*, int);
-bool is_extended_alpha(char);
+FN_DECL(add);
+FN_DECL(neg);
+FN_DECL(exit_);
+FN_DECL(car);
+FN_DECL(cbr);
+FN_DECL(cdr);
+FN_DECL(display);
+FN_DECL(equal);
 
-struct Value* reverse(struct Value*);
-
-// stdlib
-struct Value* get_stdlib(void);
+MC_DECL(define);
+MC_DECL(lambda);
+MC_DECL(get_env);
+MC_DECL(quote);

@@ -23,6 +23,7 @@ void print_value(struct Value* tree) {
             return;
         case CMACRO:
             printf("[compiled macro at %p]", tree->cfn);
+            return;
         case FN:
             printf("[user-defined function]");
             return;
@@ -131,9 +132,7 @@ struct Value* reverse(struct Value* l) {
     return newl;
 }
 
-bool is_extended_alpha(char c) {
-    return isalpha(c) || isdigit(c) || (strchr("+-.*/<=>!?:$%_&~^", c) != NULL);
-}
+bool is_extended_alpha(char c) { return isalpha(c) || isdigit(c) || (strchr("+-.*/<=>!?:$%_&~^", c) != NULL); }
 
 /* * * * * *
  *  LEXER  *
@@ -151,6 +150,7 @@ struct Value* parse_string(char** s) {
 struct Value* parse_number(char** s) {
     struct Value* token;
     int i = 0;
+    if ((**s) == '-') i++;
     while (isdigit((*s)[++i]));
     if ((*s)[i] != '.')
         token = construct(INT, atoi(extract_string(*s, i)));
@@ -194,7 +194,7 @@ struct Value* next_token(char** s) {
     }
     if ((res = parse_char(s)) != NULL) return res;
     if (**s == '"')  return parse_string(s);
-    if (isdigit(**s)) return parse_number(s);
+    if (isdigit(**s) || **s == '-') return parse_number(s);
     return parse_symbol(s);
 }
 

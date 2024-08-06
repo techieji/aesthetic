@@ -1,16 +1,5 @@
 #include "../aestheti.h"
 
-void chain(int len, ...) {
-    if (len == 0) return;
-    va_list l;
-    va_start(l, len);
-    struct Value* prev = va_arg(l, struct Value*);
-    for (int i = 1; i < len; i++)
-        prev = prev->cdr = va_arg(l, struct Value*);
-    prev->cdr = construct(NIL);
-    va_end(l);
-}
-
 bool equal_values(struct Value* v1, struct Value* v2) {
     if (v1->type != v2->type) return false;
     switch (v1->type) {
@@ -87,55 +76,3 @@ struct Value* cdr(struct Value* args) { return args->car->cdr; }
 
 struct Value* display(struct Value* v) { print_value(v->car); return construct(NIL); }
 struct Value* equal(struct Value* vs) { return construct(BOOL, equal_values(vs->car, vs->cdr->car)); }
-
-struct Value* load(struct Value* args, struct Value** env) {
-    FILE* fp = fopen(eval(args->car, env)->s, "r");
-    fseek(fp, 0L, SEEK_END);
-    int size = ftell(fp);
-    char* s = malloc(size * sizeof(char));
-    rewind(fp);
-    fread(s, sizeof(char), size, fp);
-    return run_string(s, env);
-}
-
-struct Value* load_c_fn(struct Value* args) {
-    char* s;
-    void* so = dlopen(args->car->s, RTLD_NOW | RTLD_NODELETE);
-    if ((s = dlerror())) { puts(s); return NULL; }
-    struct Value* ret = construct(CFN, dlsym(so, args->cdr->car->s));
-    if ((s = dlerror())) { puts(s); return NULL; }
-    dlclose(so);
-    if ((s = dlerror())) { puts(s); return NULL; }
-    return ret;
-}
-
-#define DECL(name, type, cfn) construct_triple(construct(SYM, name), construct(type, cfn), NULL)
-#define GVAR(name, ...) construct_triple(construct(SYM, name), construct(__VA_ARGS__), NULL)
-
-struct Value* get_stdlib(void) {
-    struct Value* env;
-    env = construct_triple(construct(SYM, "globals"), NULL, NULL);
-    env->cbr = env;
-    chain(15,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
-        env,
-        DECL("+", CFN, add),
-        DECL("exit", CFN, exit_),
-        DECL("define", CMACRO, define),
-        DECL("lambda", CMACRO, lambda),
-        DECL("get-env", CMACRO, get_env),
-        DECL("quote", CMACRO, quote),
-        DECL("if", CMACRO, if_),
-        DECL("car", CFN, car),
-        DECL("cbr", CFN, cbr),
-        DECL("cdr", CFN, cdr),
-        DECL("=", CFN, equal),
-        DECL("display", CFN, display),
-        GVAR("nil", NIL),
-        GVAR("true", BOOL, true),
-        GVAR("false", BOOL, false),
-        DECL("neg", CFN, neg),
-        DECL("load", CMACRO, load),
-        DECL("c-fn", CFN, load_c_fn)
-    );
-    return env;
-}

@@ -42,7 +42,7 @@ struct Value* eval(struct Value*, struct Value**);
 // Helpers
 void print_value(struct Value*);
 struct Value* construct(enum Type, ...);
-void destruct(struct Value*);
+void destruct(struct Value**);
 struct Value* construct_triple(struct Value*, struct Value*, struct Value*);
 struct Value* construct_error(char*, ...);
 char* extract_string(char*, int);

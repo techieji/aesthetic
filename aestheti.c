@@ -85,9 +85,12 @@ struct Value* construct(enum Type type, ...) {
     return v;
 }
 
-void destruct(struct Value* v) {
-    if (v->type == SYM || v->type == STR || v->type == ERROR) free(v->s);
+void destruct(struct Value** kv) {
+    struct Value* v = *kv;
+    if (v == NULL) return;
+    if (v->type == SYM || v->type == STR || v->type == ERROR) free((char*)v->s);
     free(v);
+    *kv = NULL;
 }
 
 struct Value* construct_triple(struct Value* car, struct Value* cbr, struct Value* cdr) {
@@ -218,7 +221,7 @@ struct Value* parse(char** s) {
             while ((tok = parse(s))->type != CLOSE) l = construct(PAIR, tok, l);
             return reverse(l);
         case QUOTE:
-            return construct(PAIR, construct(SYM, "quote"), construct(PAIR, parse(s), construct(NIL)));
+            return construct(PAIR, construct(SYM, strdup("quote")), construct(PAIR, parse(s), construct(NIL)));
         case END:
             longjmp(parse_error, 1);
             return NULL;
@@ -301,7 +304,10 @@ void sweep(void) {
     while ((cur = cur->cdr)->type != NIL) {
         if (!(curelem = cur->car)->mark) {
             prev->cdr = cur->cdr;
-            destruct(cur->car);
+            //printf("Swept: ");
+            //print_value(cur->car);
+            //printf("\n");
+            destruct(&cur->car);
             cur = prev;
         } else
             prev = cur;
@@ -370,16 +376,21 @@ __attribute__((force_align_arg_pointer))
 int run() {
     char* s = malloc(100 * sizeof(char));
     struct Value* env = get_stdlib();
-    load(construct(PAIR, construct(STR, "bootstrap.scm"), construct(NIL)), &env);
+    load(construct(PAIR, construct(STR, strdup("bootstrap.scm")), construct(NIL)), &env);
+    gc(env);
     while (true) {
         printf("> ");
         fgets(s, 100, stdin);
         if (feof(stdin)) break;
         print_value(run_string(s, &env));
         printf("\n");
-        // gc(env);         // TODO doesn't work with quotation (symbols?)
+        gc(env);         // TODO doesn't work with quotation (symbols?)
     }
     return 0;
 }
 
+#ifdef DL_LOADER
 const char dl_loader[] __attribute__((section(".interp"))) = DL_LOADER;
+#else
+int main() { return run(); }
+#endif

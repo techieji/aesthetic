@@ -7,6 +7,7 @@
 #include <setjmp.h>
 #include <stdarg.h>
 #include <dlfcn.h>
+#include <unistd.h>
 
 enum Type {
     OPEN, CLOSE, QUOTE, END,              // Purely lexical

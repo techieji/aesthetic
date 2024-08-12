@@ -357,6 +357,29 @@ struct Value* load_c(struct Value* args) {
     return ret;
 }
 
+struct Value* parse_args(struct Value* args) {
+    // Get the location of the cmdline file
+    char s[50];     // Should be more than enough
+    int pid = getpid();
+    sprintf(s, "/proc/%d/cmdline", pid);      // Won't work on some/most systems
+    FILE* fp = fopen(s, "r");
+    // Parse the file
+    struct Value* v = construct(NIL);
+    fpos_t pos;
+    size_t size;
+    while (true) {
+        fgetpos(fp, &pos);
+        size = 0;
+        while (!feof(fp) && fgetc(fp) != '\0') size++;
+        if (feof(fp)) break;
+        fsetpos(fp, &pos);
+        char* s = malloc((size + 1) * sizeof(char));
+        fread(s, sizeof(char), size + 1, fp);
+        v = construct(PAIR, construct(STR, s), v);
+    }
+    return reverse(v);
+}
+
 #define DECL(name, type, cfn) construct_triple(construct(SYM, name), construct(type, cfn), NULL)
 #define GVAR(name, ...) construct_triple(construct(SYM, name), construct(__VA_ARGS__), NULL)
 
@@ -364,16 +387,18 @@ struct Value* get_stdlib(void) {
     struct Value* env;
     env = construct_triple(construct(SYM, "env"), NULL, NULL);
     env->cbr = env;
-    chain(3,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
+    chain(4,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
         env,
         DECL("load", CMACRO, load),
-        DECL("load-c", CFN, load_c)
+        DECL("load-c", CFN, load_c),
+        DECL("args", CFN, parse_args)
     );
     return env;
 }
 
 __attribute__((force_align_arg_pointer))
 int run() {
+    // struct Value* cmd = parse_args(construct(NIL));
     char* s = malloc(100 * sizeof(char));
     struct Value* env = get_stdlib();
     load(construct(PAIR, construct(STR, strdup("bootstrap.scm")), construct(NIL)), &env);

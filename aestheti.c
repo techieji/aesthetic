@@ -5,6 +5,7 @@
  * * * * * */
 
 void print_value(struct Value* tree) {
+    if (tree == NULL) { printf("[null]"); return; }
     switch (tree->type) {
         case SYM: case STR: case ERROR: printf("%s", tree->s); return;
         case FLOAT: printf("%lf", tree->f); return;
@@ -12,6 +13,7 @@ void print_value(struct Value* tree) {
         case BOOL: printf("%s", tree->b ? "true" : "false"); return;
         case NIL: printf("nil"); return;
         case PAIR:
+            if (tree->car == NULL || tree->cdr == NULL) { printf("[degenerate]"); return; }
             printf("(");
             print_value(tree->car);
             while ((tree = tree->cdr)->type == PAIR) { printf(" "); print_value(tree->car); }
@@ -34,6 +36,9 @@ void print_value(struct Value* tree) {
 struct Value* all_values = NULL;
 
 void register_value(struct Value* v) {
+    //printf("Registered: ");
+    //print_value(v);
+    //printf("\n");
     if (all_values == NULL) {
         all_values = malloc(sizeof(struct Value));
         all_values->type = NIL;
@@ -48,7 +53,6 @@ void register_value(struct Value* v) {
 struct Value* construct(enum Type type, ...) {
     struct Value* v = malloc(sizeof(struct Value));
     v->type = type;
-    register_value(v);
     va_list l;
     va_start(l, type);
     switch (type) {
@@ -82,6 +86,7 @@ struct Value* construct(enum Type type, ...) {
         default:
     }
     va_end(l);
+    register_value(v);
     return v;
 }
 
@@ -281,13 +286,12 @@ struct Value* eval(struct Value* t, struct Value** env) {
  * GARBAGE COLLECTOR *
  * * * * * * * * * * */
 
-extern struct Value* all_values;
-
 void reset(void) {
     for (struct Value* ptr = all_values; ptr->type != NIL; ptr = ptr->cdr) ptr->mark = false;
 }
 
 void mark(struct Value* v) {
+    if (v == NULL) return;
     if (v->mark) return;
     v->mark = true;
     if (v->type == PAIR || v->type == FN) {
@@ -304,20 +308,14 @@ void sweep(void) {
     while ((cur = cur->cdr)->type != NIL) {
         if (!((curelem = cur->car)->mark)) {
             prev->cdr = cur->cdr;
-            printf("Swept: ");
-            print_value(cur->car);
-            printf("\n");
+            //printf("Swept: ");
+            //print_value(cur->car);
+            //printf("\n");
             destruct(&cur->car);
             cur = prev;
         } else
             prev = cur;
     }
-}
-
-void gc(struct Value* env) {
-    reset();
-    mark(env);
-    sweep();
 }
 
 /* * * * * * * * * * *
@@ -330,12 +328,16 @@ struct Value* run_string(char* s, struct Value** env) {
     while (peek_token(ptr)->type != END && res->type != ERROR) {
         struct Value* tree = setjmp(parse_error) == 0 ? parse(ptr) : construct_error("EOF ERROR.");
         res = eval(tree, env);
+        reset();
+        mark(*env);
+        mark(res);
+        sweep();
     }
     next_token(ptr);
     return res;
 }
 
-struct Value* load(struct Value* args, struct Value** env) {       // TODO: run gc
+struct Value* load(struct Value* args, struct Value** env) {
     FILE* fp = fopen(args->car->s, "r");
     if (fp == NULL) return construct_error("COULD NOT OPEN FILE.");
     fseek(fp, 0L, SEEK_END);
@@ -404,16 +406,14 @@ int run() {
     char* s = malloc(100 * sizeof(char));
     struct Value* env = get_stdlib();
     load(construct(PAIR, construct(STR, strdup("bootstrap.scm")), construct(NIL)), &env);
-    gc(env);
     while (true) {
         printf("> ");
         fgets(s, 100, stdin);
         if (feof(stdin)) break;
         print_value(run_string(s, &env));
         printf("\n");
-        // gc(env);         // TODO doesn't work with quotation (symbols?)
-        print_value(env);
-        printf("\n");
+        //print_value(env);
+        //printf("\n");
     }
     return 0;
 }

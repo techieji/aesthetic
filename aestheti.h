@@ -30,7 +30,7 @@ struct Value {
         struct Value* (*cfn)(struct Value* list);
         struct Value* (*cmac)(struct Value* list, struct Value** env);
     };
-    bool mark;
+    int mark;
 };
 
 // API

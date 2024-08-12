@@ -1,6 +1,4 @@
-((load-c "lib/libstd.so" 12 "define") define (load-c "lib/libstd.so" 12 "define"))
-(define CFN 11)
-(define CMACRO 12)
+((load-c "lib/libstd.so" CMACRO "define") define (load-c "lib/libstd.so" CMACRO "define"))
 (define (get-lib-fn s) (load-c "lib/libstd.so" CFN s))
 (define (get-lib-mac s) (load-c "lib/libstd.so" CMACRO s))
 

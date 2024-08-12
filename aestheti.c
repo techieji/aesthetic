@@ -302,11 +302,11 @@ void sweep(void) {
     prev = all_values;       // FIXME bug: first element of list can never be garbage collected
     cur = prev;
     while ((cur = cur->cdr)->type != NIL) {
-        if (!(curelem = cur->car)->mark) {
+        if (!((curelem = cur->car)->mark)) {
             prev->cdr = cur->cdr;
-            //printf("Swept: ");
-            //print_value(cur->car);
-            //printf("\n");
+            printf("Swept: ");
+            print_value(cur->car);
+            printf("\n");
             destruct(&cur->car);
             cur = prev;
         } else
@@ -335,7 +335,7 @@ struct Value* run_string(char* s, struct Value** env) {
     return res;
 }
 
-struct Value* load(struct Value* args, struct Value** env) {
+struct Value* load(struct Value* args, struct Value** env) {       // TODO: run gc
     FILE* fp = fopen(args->car->s, "r");
     if (fp == NULL) return construct_error("COULD NOT OPEN FILE.");
     fseek(fp, 0L, SEEK_END);
@@ -380,6 +380,7 @@ struct Value* parse_args(struct Value* args) {
     return reverse(v);
 }
 
+// Technically the same thing, probably should remove one
 #define DECL(name, type, cfn) construct_triple(construct(SYM, name), construct(type, cfn), NULL)
 #define GVAR(name, ...) construct_triple(construct(SYM, name), construct(__VA_ARGS__), NULL)
 
@@ -387,18 +388,19 @@ struct Value* get_stdlib(void) {
     struct Value* env;
     env = construct_triple(construct(SYM, "env"), NULL, NULL);
     env->cbr = env;
-    chain(4,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
+    chain(6,           // UPDATE THIS WHEN ADDING NEW DECLARATIONS
         env,
         DECL("load", CMACRO, load),
         DECL("load-c", CFN, load_c),
-        DECL("args", CFN, parse_args)
+        DECL("args", CFN, parse_args),
+        GVAR("CMACRO", INT, CMACRO),
+        GVAR("CFN", INT, CFN)
     );
     return env;
 }
 
 __attribute__((force_align_arg_pointer))
 int run() {
-    // struct Value* cmd = parse_args(construct(NIL));
     char* s = malloc(100 * sizeof(char));
     struct Value* env = get_stdlib();
     load(construct(PAIR, construct(STR, strdup("bootstrap.scm")), construct(NIL)), &env);
@@ -409,7 +411,9 @@ int run() {
         if (feof(stdin)) break;
         print_value(run_string(s, &env));
         printf("\n");
-        gc(env);         // TODO doesn't work with quotation (symbols?)
+        // gc(env);         // TODO doesn't work with quotation (symbols?)
+        print_value(env);
+        printf("\n");
     }
     return 0;
 }

@@ -7,7 +7,8 @@
 void print_value(struct Value* tree) {
     if (tree == NULL) { printf("[null]"); return; }
     switch (tree->type) {
-        case SYM: case STR: case ERROR: printf("%s", tree->s); return;
+        case SYM: case ERROR: printf("%s", tree->s); return;
+        case STR: printf("\"%s\"", tree->s); return;
         case FLOAT: printf("%lf", tree->f); return;
         case INT: printf("%d", tree->i); return;
         case BOOL: printf("%s", tree->b ? "true" : "false"); return;

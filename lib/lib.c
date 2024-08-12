@@ -74,5 +74,9 @@ struct Value* car(struct Value* args) { return args->car->car; }
 struct Value* cbr(struct Value* args) { return args->car->cbr; }
 struct Value* cdr(struct Value* args) { return args->car->cdr; }
 
-struct Value* display(struct Value* v) { print_value(v->car); return construct(NIL); }
+struct Value* display(struct Value* v) {
+    if (v->type == STR) v = construct(SYM, v->s);
+    print_value(v->car);
+    return construct(NIL);
+}
 struct Value* equal(struct Value* vs) { return construct(BOOL, equal_values(vs->car, vs->cdr->car)); }
